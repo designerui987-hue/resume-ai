@@ -15,6 +15,7 @@ import EducationForm from '@/components/editor/EducationForm';
 import ProjectsForm from '@/components/editor/ProjectsForm';
 import ResumePreview, { TemplateType } from '@/components/preview/ResumePreview';
 import CoverLetterModal from '@/components/modals/CoverLetterModal';
+import AIAssistantPanel from '@/components/ai/AIAssistantPanel';
 
 type ActiveSection =
   | 'personal'
@@ -54,7 +55,7 @@ export default function ResumeEditorPage() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
   const [isExporting, setIsExporting] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(true);
+  const [showAiPanel, setShowAiPanel] = useState(false);
 
   const {
     register,
@@ -318,6 +319,18 @@ export default function ResumeEditorPage() {
     }
   };
 
+  // Keyboard shortcut: Cmd/Ctrl+J to toggle AI panel
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault();
+        setShowAiPanel((p) => !p);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] flex items-center justify-center font-sans">
@@ -391,12 +404,17 @@ export default function ResumeEditorPage() {
             ))}
           </div>
 
-          {/* AI Cover Letter */}
+          {/* AI Assistant Toggle */}
           <button
-            onClick={() => setIsCoverLetterModalOpen(true)}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-[#18181B] border border-[#E4E4E7] cursor-pointer"
+            onClick={() => setShowAiPanel((p) => !p)}
+            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-all ${
+              showAiPanel
+                ? 'bg-[#111827] text-white border-[#111827]'
+                : 'bg-white hover:bg-zinc-50 text-[#18181B] border-[#E4E4E7]'
+            }`}
+            title="Toggle AI Assistant (⌘J)"
           >
-            ✉️ Cover Letter
+            ✨ AI Assistant
           </button>
 
           {/* Download */}
@@ -508,73 +526,47 @@ export default function ResumeEditorPage() {
           </div>
         </div>
 
-        {/* ── Panel 3: Right - Live Preview + AI Panel ── */}
-        <div className="hidden lg:flex w-[480px] xl:w-[540px] shrink-0 flex-col border-l border-[#E4E4E7] bg-white overflow-hidden">
+        {/* ── Panel 3: Right - Live Preview (full height) ── */}
+        <div className="hidden lg:flex w-[440px] xl:w-[500px] shrink-0 flex-col border-l border-[#E4E4E7] bg-white overflow-hidden">
           {/* Preview header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E4E7]">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E4E7] shrink-0">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#15803D]" />
               <span className="text-xs font-semibold text-[#18181B]">Live Preview</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-[#71717A]">
-              <button className="hover:text-[#18181B]">−</button>
-              <span className="font-semibold">90%</span>
-              <button className="hover:text-[#18181B]">+</button>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-1.5 text-xs text-[#71717A]">
+                <button className="hover:text-[#18181B] px-1">−</button>
+                <span className="font-semibold">90%</span>
+                <button className="hover:text-[#18181B] px-1">+</button>
+              </div>
+              <button
+                onClick={() => setShowAiPanel((p) => !p)}
+                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FAFAF9] border border-[#E4E4E7] hover:border-[#111827] text-[11px] font-semibold text-[#71717A] hover:text-[#18181B] cursor-pointer"
+                title="AI Assistant (⌘J)"
+              >
+                ✨ AI
+              </button>
             </div>
           </div>
 
-          {/* Preview + AI panels stack */}
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Live Resume Preview (sticky) */}
-            <div className={`overflow-y-auto ${showAiPanel ? 'max-h-[55%]' : 'flex-1'} bg-zinc-50 p-4`}>
-              <div className="origin-top" style={{ transform: 'scale(0.9)', transformOrigin: 'top center' }}>
-                <ResumePreview data={formData} template={activeTemplate} />
-              </div>
-            </div>
-
-            {/* AI Assistant Panel */}
-            <div className="border-t border-[#E4E4E7] bg-white flex flex-col overflow-hidden">
-              <button
-                onClick={() => setShowAiPanel((p) => !p)}
-                className="flex items-center justify-between px-4 py-3 w-full hover:bg-zinc-50 transition-colors cursor-pointer"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">✨</span>
-                  <span className="text-xs font-bold text-[#18181B]">AI Assistant</span>
-                </div>
-                <span className="text-xs text-[#71717A]">{showAiPanel ? '▲' : '▼'}</span>
-              </button>
-
-              {showAiPanel && (
-                <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
-                  <p className="text-xs text-[#71717A] mb-3">How can I help you today?</p>
-                  {AI_ACTIONS.map((action) => (
-                    <button
-                      key={action.label}
-                      type="button"
-                      onClick={() => {
-                        if (action.label === 'Generate Cover Letter') {
-                          setIsCoverLetterModalOpen(true);
-                        }
-                      }}
-                      className="w-full flex items-center justify-between p-3 rounded-xl border border-[#E4E4E7] hover:border-[#111827] bg-[#FAFAF9] hover:bg-white transition-all text-left cursor-pointer"
-                    >
-                      <div>
-                        <p className="text-xs font-bold text-[#18181B] flex items-center gap-1.5">
-                          <span>{action.icon}</span>
-                          <span>{action.label}</span>
-                        </p>
-                        <p className="text-[11px] text-[#71717A] mt-0.5">{action.description}</p>
-                      </div>
-                      <span className="text-xs text-[#71717A] shrink-0">→</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+          {/* Full Live Resume Preview */}
+          <div className="flex-1 overflow-y-auto bg-zinc-50 p-4">
+            <div style={{ transform: 'scale(0.88)', transformOrigin: 'top center' }}>
+              <ResumePreview data={formData} template={activeTemplate} />
             </div>
           </div>
         </div>
       </div>
+
+      {/* Floating AI Assistant toggle button (mobile/no panel) */}
+      <button
+        onClick={() => setShowAiPanel((p) => !p)}
+        className="fixed bottom-6 right-6 z-30 lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-semibold shadow-lg cursor-pointer"
+        title="AI Assistant (⌘J)"
+      >
+        ✨ AI Assistant
+      </button>
 
       <CoverLetterModal
         isOpen={isCoverLetterModalOpen}
@@ -582,6 +574,21 @@ export default function ResumeEditorPage() {
         defaultFullName={formData.personal?.fullName}
         defaultTargetRole={formData.personal?.title}
         defaultSkills={(formData.skills || []).map((s) => s.name).filter(Boolean) as string[]}
+      />
+
+      {/* ─── AI Assistant Panel (fixed overlay) ─── */}
+      <AIAssistantPanel
+        isOpen={showAiPanel}
+        onClose={() => setShowAiPanel(false)}
+        targetRole={formData.personal?.title || 'Professional'}
+        fullName={formData.personal?.fullName || ''}
+        currentSummary={formData.summary?.summary || ''}
+        skills={(formData.skills || []).map((s) => s.name).filter(Boolean) as string[]}
+        onSummaryGenerated={(text) => {
+          setValue('summary.summary', text, { shouldValidate: true, shouldDirty: true });
+          setActiveSection('summary');
+        }}
+        onCoverLetterOpen={() => setIsCoverLetterModalOpen(true)}
       />
     </div>
   );
