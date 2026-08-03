@@ -21,6 +21,7 @@ import {
   CheckSquare,
   AlertTriangle,
 } from 'lucide-react';
+import { logActivity } from '@/lib/activityLogger';
 
 const ITEMS_PER_PAGE = 8;
 
@@ -295,6 +296,7 @@ export default function ResumesPage() {
 
   /* ───────── Actions ───────── */
   const handleCreateNew = () => {
+    logActivity('created', 'New Resume');
     router.push('/editor/new-' + Date.now());
   };
 
@@ -375,6 +377,7 @@ export default function ResumesPage() {
       await new Promise(r => setTimeout(r, 300));
       setImportProgress(100);
 
+      logActivity('created', resumeName);
       setSuccessMsg(`"${resumeName}" imported successfully!`);
       setTimeout(() => setSuccessMsg(null), 5000);
 
@@ -392,6 +395,8 @@ export default function ResumesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    const target = resumes.find(r => r.id === id);
+    if (target) logActivity('deleted', target.title);
     // Optimistic remove (ResumeCard shows its own confirm dialog before calling this)
     setResumes(prev => prev.filter(r => r.id !== id));
     if (userId && userId !== 'demo-user-id') {
@@ -419,6 +424,7 @@ export default function ResumesPage() {
     };
     // Optimistic add
     setResumes(prev => [newItem, ...prev]);
+    logActivity('duplicated', newTitle);
     setSuccessMsg(`"${newTitle}" created.`);
     setTimeout(() => setSuccessMsg(null), 3000);
 
@@ -441,6 +447,7 @@ export default function ResumesPage() {
   const handleRename = async (id: string, newTitle: string) => {
     // Optimistic update
     setResumes(prev => prev.map(r => r.id === id ? { ...r, title: newTitle, updatedAgo: 'Just now' } : r));
+    logActivity('edited', newTitle);
     setSuccessMsg(`Renamed to "${newTitle}".`);
     setTimeout(() => setSuccessMsg(null), 3000);
 
@@ -655,7 +662,7 @@ export default function ResumesPage() {
             <div className="w-full lg:w-[320px] shrink-0 space-y-5">
               <ResumeInsights resumes={resumes} loading={loading} />
               <RecentActivity />
-              <TipsCard />
+              <TipsCard resumes={resumes} />
             </div>
           </div>
         </div>

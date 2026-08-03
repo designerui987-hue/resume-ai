@@ -1,27 +1,32 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Lightbulb, Check } from 'lucide-react';
+import { ResumeItem } from './ResumeCard';
+import { generatePersonalizedTips } from '@/lib/proTips';
 
-export function TipsCard() {
-  const tips = [
-    'Tailor your resume for each job',
-    'Add more quantifiable achievements',
-    'Include relevant keywords',
-    'Keep your resume concise',
-    'Ensure proper formatting',
-  ];
+interface TipsCardProps {
+  resumes?: ResumeItem[];
+}
+
+export function TipsCard({ resumes = [] }: TipsCardProps) {
+  const tips = useMemo(() => generatePersonalizedTips(resumes), [resumes]);
 
   return (
     <div className="p-5 rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs space-y-4">
-      <div className="flex items-center gap-2 text-sm font-bold text-[#18181B]">
-        <Lightbulb className="w-4 h-4 text-[#71717A]" />
-        <span>Pro Tips</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-bold text-[#18181B]">
+          <Lightbulb className="w-4 h-4 text-[#71717A]" />
+          <span>Pro Tips</span>
+        </div>
+        <span className="text-[10px] font-semibold text-[#71717A] bg-zinc-100 px-2 py-0.5 rounded-full">
+          Personalized
+        </span>
       </div>
 
-      <div className="space-y-2 text-xs text-[#71717A]">
+      <div className="space-y-2.5 text-xs text-[#71717A]">
         {tips.map((tip) => (
-          <div key={tip} className="flex items-center gap-2">
-            <Check className="w-3.5 h-3.5 text-[#18181B] shrink-0 font-bold" />
-            <span>{tip}</span>
+          <div key={tip} className="flex items-start gap-2">
+            <Check className="w-3.5 h-3.5 text-[#18181B] shrink-0 font-bold mt-0.5" />
+            <span className="leading-snug text-[#18181B] font-medium">{tip}</span>
           </div>
         ))}
       </div>

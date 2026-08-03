@@ -6,6 +6,7 @@ import {
   Sparkles, Calendar,
 } from 'lucide-react';
 import { calculateDynamicATSScore } from '@/lib/ats';
+import { logActivity } from '@/lib/activityLogger';
 
 export interface ResumeItem {
   id: string;
@@ -260,7 +261,10 @@ export function ResumeCard({
 
           {/* Download PDF */}
           <button
-            onClick={() => setShowMenu(false)}
+            onClick={() => {
+              logActivity('downloaded', resume.title);
+              setShowMenu(false);
+            }}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-zinc-100 text-left transition-colors cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-[#71717A]" />
