@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase';
 import { Database } from '@/types/database';
 import { Sidebar } from '@/components/resumes/Sidebar';
 import { TopHeader } from '@/components/layout/TopHeader';
-import AIAssistantPanel from '@/components/ai/AIAssistantPanel';
+import AIAssistantDrawer from '@/components/ai/AIAssistantDrawer';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/EmptyState';
 import {
@@ -1424,7 +1424,7 @@ export default function DashboardPage() {
       )}
 
       {/* AI Assistant Drawer */}
-      <AIAssistantPanel isOpen={isAIDrawerOpen} onClose={() => setIsAIDrawerOpen(false)} />
+      <AIAssistantDrawer isOpen={isAIDrawerOpen} onClose={() => setIsAIDrawerOpen(false)} />
     </div>
   );
 }

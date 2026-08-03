@@ -109,7 +109,6 @@ export default function ResumeEditorPage() {
     };
   }, [isSidebarCollapsed]);
 
-  const [zoomLevel, setZoomLevel] = useState(90);
   const [shareToast, setShareToast] = useState(false);
 
   // Sidebar state & actions
@@ -203,11 +202,7 @@ export default function ResumeEditorPage() {
 
 
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(150, prev + 10));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 10));
-  
 
-  
 
   // Load resume data
   useEffect(() => {
