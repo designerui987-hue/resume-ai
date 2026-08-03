@@ -201,39 +201,7 @@ export default function ResumeEditorPage() {
     }
   };
 
-  // Keyboard Shortcuts Listener (Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+/)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
 
-      // Ctrl + S: Save
-      if (isCtrlOrCmd && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        handleSubmit(saveToSupabase)();
-      }
-
-      // Ctrl + Shift + Z or Ctrl + Y: Redo
-      else if (isCtrlOrCmd && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')) {
-        e.preventDefault();
-        handleRedo();
-      }
-
-      // Ctrl + Z: Undo
-      else if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
-        e.preventDefault();
-        handleUndo();
-      }
-
-      // Ctrl + /: Toggle AI Drawer
-      else if (isCtrlOrCmd && e.key === '/') {
-        e.preventDefault();
-        setShowAiPanel((prev) => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleSubmit, saveToSupabase, handleUndo, handleRedo]);
 
   const handleZoomIn = () => setZoomLevel((prev) => Math.min(150, prev + 10));
   const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 10));
@@ -448,6 +416,40 @@ export default function ResumeEditorPage() {
     });
     return () => subscription.unsubscribe();
   }, [watch, handleSubmit, saveToSupabase]);
+
+  // Keyboard Shortcuts Listener (Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+/)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // Ctrl + S: Save
+      if (isCtrlOrCmd && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSubmit(saveToSupabase)();
+      }
+
+      // Ctrl + Shift + Z or Ctrl + Y: Redo
+      else if (isCtrlOrCmd && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')) {
+        e.preventDefault();
+        handleRedo();
+      }
+
+      // Ctrl + Z: Undo
+      else if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Ctrl + /: Toggle AI Drawer
+      else if (isCtrlOrCmd && e.key === '/') {
+        e.preventDefault();
+        setShowAiPanel((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit, saveToSupabase, handleUndo, handleRedo]);
 
   const handleTitleSave = async () => {
     const trimmed = titleInput.trim();
