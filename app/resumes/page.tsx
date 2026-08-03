@@ -234,19 +234,26 @@ export default function ResumesPage() {
 
   useEffect(() => {
     const init = async () => {
-      // Initialize state from URL query parameters if present
+      // Initialize state from URL query parameters or localStorage if present
       if (typeof window !== 'undefined') {
         const searchParams = new URLSearchParams(window.location.search);
         const fParam = searchParams.get('filter');
         const sParam = searchParams.get('sort');
         const qParam = searchParams.get('q');
+        const vParam = searchParams.get('view');
         const savedSort = localStorage.getItem('resume_ai_sort_by');
+        const savedView = localStorage.getItem('resume_ai_view_mode') as 'list' | 'grid' | null;
 
         if (fParam) setStatusFilter(fParam);
         if (sParam) {
           setSortBy(sParam);
         } else if (savedSort) {
           setSortBy(savedSort);
+        }
+        if (vParam === 'grid' || vParam === 'list') {
+          setViewMode(vParam);
+        } else if (savedView === 'grid' || savedView === 'list') {
+          setViewMode(savedView);
         }
         if (qParam) setSearchQuery(qParam);
       }
@@ -273,12 +280,13 @@ export default function ResumesPage() {
   }, [router, fetchResumes]);
 
   // Helper to sync state changes to URL query parameters without reloading
-  const updateUrlParams = (filterVal: string, sortVal: string, queryVal: string) => {
+  const updateUrlParams = (filterVal: string, sortVal: string, queryVal: string, viewVal?: string) => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams();
     if (filterVal && filterVal !== 'all') params.set('filter', filterVal);
-    if (sortVal && sortVal !== 'modified') params.set('sort', sortVal);
+    if (sortVal && sortVal !== 'newest') params.set('sort', sortVal);
     if (queryVal && queryVal.trim()) params.set('q', queryVal.trim());
+    if (viewVal && viewVal !== 'list') params.set('view', viewVal);
 
     const newQueryStr = params.toString();
     const newUrl = newQueryStr ? `${window.location.pathname}?${newQueryStr}` : window.location.pathname;
@@ -574,7 +582,13 @@ export default function ResumesPage() {
               updateUrlParams(statusFilter, s, searchQuery);
             }}
             viewMode={viewMode}
-            onViewModeChange={setViewMode}
+            onViewModeChange={m => {
+              setViewMode(m);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('resume_ai_view_mode', m);
+              }
+              updateUrlParams(statusFilter, sortBy, searchQuery, m);
+            }}
             allResumes={resumes}
             onSelectSuggestion={id => {
               const match = resumes.find(r => r.id === id);
@@ -616,7 +630,7 @@ export default function ResumesPage() {
                   onAction={searchQuery ? () => setSearchQuery('') : handleCreateNew}
                 />
               ) : (
-                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-3.5'}>
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-5' : 'space-y-3.5'}>
                   {paginated.map(resume => (
                     <ResumeCard
                       key={resume.id}

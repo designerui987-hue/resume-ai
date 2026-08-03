@@ -236,44 +236,72 @@ export function ResumeCard({
   if (viewMode === 'grid') {
     return (
       <>
-        <div className="rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs space-y-0 relative group hover:border-[#111827] transition-all">
-          <Link href={`/editor/${resume.id}`} className="block p-5 pb-3 space-y-4">
-            {/* Thumbnail */}
-            <div className="w-full h-40 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] flex flex-col justify-between p-4 overflow-hidden relative">
-              <div className="space-y-1">
-                <div className="h-2 w-1/2 bg-zinc-300 rounded-sm" />
-                <div className="h-1.5 w-1/3 bg-zinc-200 rounded-sm" />
+        <div className="rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs relative group hover:border-[#111827] transition-all flex flex-col justify-between overflow-hidden">
+          <Link href={`/editor/${resume.id}`} className="p-5 pb-3 space-y-4 block flex-1">
+            {/* Rich Document Preview Thumbnail */}
+            <div className="w-full h-44 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] flex flex-col justify-between p-4 overflow-hidden relative shadow-2xs group-hover:bg-zinc-100/60 transition-colors">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full bg-zinc-300 shrink-0" />
+                  <div className="space-y-1 flex-1">
+                    <div className="h-2.5 w-2/3 bg-zinc-300 rounded-sm" />
+                    <div className="h-1.5 w-1/3 bg-zinc-200 rounded-sm" />
+                  </div>
+                </div>
+                <div className="h-1 w-full bg-zinc-200 rounded-sm mt-2" />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1.5 pt-2">
                 <div className="h-1.5 w-full bg-zinc-200 rounded-sm" />
+                <div className="h-1.5 w-11/12 bg-zinc-200 rounded-sm" />
                 <div className="h-1.5 w-4/5 bg-zinc-200 rounded-sm" />
                 <div className="h-1.5 w-3/4 bg-zinc-200 rounded-sm" />
               </div>
-              <div className="absolute inset-0 bg-[#111827]/70 flex items-center justify-center text-white font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]">
+              <div className="absolute inset-0 bg-[#111827]/75 flex items-center justify-center text-white font-bold text-xs opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-[1px]">
                 Open in Editor →
               </div>
             </div>
 
-            <div className="flex justify-between items-start gap-2">
-              <div className="min-w-0">
-                <h3 className="text-sm font-bold text-[#18181B] truncate">{resume.title}</h3>
-                <p className="text-[11px] text-[#71717A] mt-0.5">Updated {resume.updatedAgo}</p>
+            {/* Resume Info Header */}
+            <div className="flex justify-between items-start gap-2 pt-1">
+              <div className="min-w-0 space-y-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="text-sm font-bold text-[#18181B] truncate">{resume.title}</h3>
+                  {resume.status && (
+                    <span className={`px-1.5 py-0.5 rounded-md font-semibold text-[9px] shrink-0 ${
+                      resume.status === 'Completed' || resume.status === 'Published'
+                        ? 'bg-emerald-50 border border-emerald-100 text-emerald-700'
+                        : resume.status === 'Archived'
+                        ? 'bg-amber-50 border border-amber-100 text-amber-700'
+                        : 'bg-zinc-100 border border-zinc-200 text-zinc-500'
+                    }`}>
+                      {resume.status}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#71717A]">Updated {resume.updatedAgo}</p>
               </div>
-              <div className="relative w-9 h-9 flex items-center justify-center shrink-0">
+
+              {/* ATS Gauge */}
+              <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                 <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E4E4E7" strokeWidth="3" />
                   <circle cx="18" cy="18" r="15.5" fill="none" stroke={scoreColor} strokeWidth="3"
                     strokeDasharray="97" strokeDashoffset={97 - (resume.atsScore / 100) * 97} strokeLinecap="round" />
                 </svg>
-                <span className="absolute text-[10px] font-bold text-[#18181B]">{resume.atsScore}</span>
+                <span className="absolute text-xs font-bold text-[#18181B]">{resume.atsScore}</span>
               </div>
             </div>
           </Link>
 
-          <div className="flex items-center justify-between text-[10px] text-[#71717A] px-5 py-3 border-t border-[#E4E4E7]">
-            <span>📄 {resume.pages} page{resume.pages > 1 ? 's' : ''}</span>
+          {/* Card Footer */}
+          <div className="flex items-center justify-between text-[11px] text-[#71717A] px-5 py-3 border-t border-[#E4E4E7] bg-white">
+            <span className="flex items-center gap-1">
+              <FileText className="w-3 h-3" /> {resume.pages} page{resume.pages > 1 ? 's' : ''}
+            </span>
             <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-              <span>{resume.modifiedDate}</span>
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" /> {resume.modifiedDate}
+              </span>
               <ActionMenu />
             </div>
           </div>
