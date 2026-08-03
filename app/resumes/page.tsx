@@ -280,6 +280,62 @@ export default function ResumesPage() {
     init();
   }, [router, fetchResumes]);
 
+  // Global Keyboard Shortcuts (N, /, Delete, Ctrl+D, Esc)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const isTyping =
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        (document.activeElement as HTMLElement)?.isContentEditable;
+
+      if (e.key === 'Escape') {
+        if (isTyping) {
+          (document.activeElement as HTMLElement)?.blur();
+        }
+        setSearchQuery('');
+        return;
+      }
+
+      if (isTyping) return;
+
+      // Shortcut: '/' -> Focus Search
+      if (e.key === '/') {
+        e.preventDefault();
+        const searchInput = document.getElementById('search-input');
+        searchInput?.focus();
+        return;
+      }
+
+      // Shortcut: 'N' or 'n' -> Create Resume
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault();
+        handleCreateNew();
+        return;
+      }
+
+      // Shortcut: 'Ctrl + D' or 'Cmd + D' -> Duplicate Resume
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        if (resumes.length > 0) {
+          handleDuplicate(resumes[0].id);
+        }
+        return;
+      }
+
+      // Shortcut: 'Delete' -> Delete Selected
+      if (e.key === 'Delete') {
+        e.preventDefault();
+        if (resumes.length > 0) {
+          handleDelete(resumes[0].id);
+        }
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [resumes]);
+
   // Helper to sync state changes to URL query parameters without reloading
   const updateUrlParams = (filterVal: string, sortVal: string, queryVal: string, viewVal?: string) => {
     if (typeof window === 'undefined') return;

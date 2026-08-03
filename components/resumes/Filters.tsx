@@ -108,6 +108,7 @@ export function Filters({
       <div className="relative w-full sm:w-80">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A] pointer-events-none" />
         <input
+          id="search-input"
           ref={inputRef}
           type="text"
           value={searchQuery}
