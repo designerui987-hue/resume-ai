@@ -212,9 +212,11 @@ export function Filters({
             onChange={e => onSortChange(e.target.value)}
             className="appearance-none pl-3.5 pr-8 py-2 rounded-xl bg-white border border-[#E4E4E7] text-xs font-semibold text-[#18181B] focus:outline-none cursor-pointer shadow-2xs"
           >
-            <option value="modified">Last Modified</option>
-            <option value="score">ATS Score</option>
-            <option value="title">Title (A–Z)</option>
+            <option value="newest">Newest</option>
+            <option value="oldest">Oldest</option>
+            <option value="highest_score">Highest ATS Score</option>
+            <option value="alphabetical">Alphabetical</option>
+            <option value="last_opened">Last Opened</option>
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A] pointer-events-none" />
         </div>

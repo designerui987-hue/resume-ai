@@ -14,10 +14,11 @@ export interface ResumeItem {
   modifiedDate: string;
   atsScore: number;
   status?: string;
-  // extra search fields (optionally populated from Supabase)
   targetRole?: string;
   skills?: string[];
   companies?: string[];
+  createdAt?: string;
+  lastOpenedAt?: string;
 }
 
 interface ResumeCardProps {

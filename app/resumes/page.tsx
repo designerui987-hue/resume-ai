@@ -53,9 +53,10 @@ function toResumeItem(row: any): ResumeItem {
     atsScore: row.completion_score ?? 0,
     status: row.status ?? 'Draft',
     targetRole: row.target_role ?? '',
-    // skills and companies are fetched asynchronously if needed; omit for now
     skills: [],
     companies: [],
+    createdAt: row.created_at || row.updated_at || new Date().toISOString(),
+    lastOpenedAt: row.last_opened_at || row.updated_at || row.created_at || new Date().toISOString(),
   };
 }
 
@@ -71,7 +72,7 @@ export default function ResumesPage() {
   // UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('modified');
+  const [sortBy, setSortBy] = useState('newest');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -101,6 +102,8 @@ export default function ResumesPage() {
           modifiedDate: '08 May 2025',
           atsScore: 92,
           status: 'Completed',
+          createdAt: new Date(Date.now() - 3600000 * 2).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 3600000 * 1).toISOString(),
         },
         {
           id: 'demo-2',
@@ -114,6 +117,8 @@ export default function ResumesPage() {
           modifiedDate: '06 May 2025',
           atsScore: 88,
           status: 'Draft',
+          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
         },
         {
           id: 'demo-3',
@@ -127,6 +132,8 @@ export default function ResumesPage() {
           modifiedDate: '03 May 2025',
           atsScore: 74,
           status: 'Draft',
+          createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 86400000 * 3).toISOString(),
         },
         {
           id: 'demo-4',
@@ -140,6 +147,8 @@ export default function ResumesPage() {
           modifiedDate: '30 Apr 2025',
           atsScore: 90,
           status: 'Completed',
+          createdAt: new Date(Date.now() - 86400000 * 7).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 3600000 * 5).toISOString(),
         },
         {
           id: 'demo-5',
@@ -153,6 +162,8 @@ export default function ResumesPage() {
           modifiedDate: '20 Apr 2025',
           atsScore: 68,
           status: 'Draft',
+          createdAt: new Date(Date.now() - 86400000 * 14).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
         },
         {
           id: 'demo-6',
@@ -166,6 +177,8 @@ export default function ResumesPage() {
           modifiedDate: '10 Mar 2025',
           atsScore: 60,
           status: 'Archived',
+          createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
+          lastOpenedAt: new Date(Date.now() - 86400000 * 25).toISOString(),
         },
       ]);
       setLoading(false);
@@ -227,9 +240,14 @@ export default function ResumesPage() {
         const fParam = searchParams.get('filter');
         const sParam = searchParams.get('sort');
         const qParam = searchParams.get('q');
+        const savedSort = localStorage.getItem('resume_ai_sort_by');
 
         if (fParam) setStatusFilter(fParam);
-        if (sParam) setSortBy(sParam);
+        if (sParam) {
+          setSortBy(sParam);
+        } else if (savedSort) {
+          setSortBy(savedSort);
+        }
         if (qParam) setSearchQuery(qParam);
       }
 
@@ -459,10 +477,26 @@ export default function ResumesPage() {
       return r.status !== 'Archived';
     })
     .sort((a, b) => {
-      if (statusFilter === 'highest_ats' || sortBy === 'score') return b.atsScore - a.atsScore;
-      if (statusFilter === 'recently_updated' || sortBy === 'modified') return 0;
-      if (sortBy === 'title') return a.title.localeCompare(b.title);
-      return 0;
+      if (sortBy === 'oldest') {
+        const timeA = new Date(a.createdAt || a.modifiedDate).getTime();
+        const timeB = new Date(b.createdAt || b.modifiedDate).getTime();
+        return timeA - timeB;
+      }
+      if (sortBy === 'highest_score' || statusFilter === 'highest_ats') {
+        return b.atsScore - a.atsScore;
+      }
+      if (sortBy === 'alphabetical') {
+        return a.title.localeCompare(b.title);
+      }
+      if (sortBy === 'last_opened') {
+        const timeA = new Date(a.lastOpenedAt || a.createdAt || a.modifiedDate).getTime();
+        const timeB = new Date(b.lastOpenedAt || b.createdAt || b.modifiedDate).getTime();
+        return timeB - timeA;
+      }
+      // Default: 'newest'
+      const timeA = new Date(a.createdAt || a.modifiedDate).getTime();
+      const timeB = new Date(b.createdAt || b.modifiedDate).getTime();
+      return timeB - timeA;
     });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
@@ -534,6 +568,9 @@ export default function ResumesPage() {
             sortBy={sortBy}
             onSortChange={s => {
               setSortBy(s);
+              if (typeof window !== 'undefined') {
+                localStorage.setItem('resume_ai_sort_by', s);
+              }
               updateUrlParams(statusFilter, s, searchQuery);
             }}
             viewMode={viewMode}
