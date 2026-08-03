@@ -87,13 +87,73 @@ export default function ResumesPage() {
   /* ───────── Auth + data fetch ───────── */
   const fetchResumes = useCallback(async (uid: string) => {
     if (uid === 'demo-user-id') {
-      // Use static demo cards
+      // Use static demo cards with roles, skills, and companies for rich search
       setResumes([
-        { id: 'demo-1', title: 'Senior Frontend Developer', isDefault: true, updatedAgo: '2 hours ago', pages: 2, modifiedDate: '08 May 2025', atsScore: 92, status: 'Published' },
-        { id: 'demo-2', title: 'Product Manager', isDefault: false, updatedAgo: '2 days ago', pages: 1, modifiedDate: '06 May 2025', atsScore: 88, status: 'Draft' },
-        { id: 'demo-3', title: 'Full Stack Developer', isDefault: false, updatedAgo: '5 days ago', pages: 2, modifiedDate: '03 May 2025', atsScore: 74, status: 'Draft' },
-        { id: 'demo-4', title: 'UI/UX Designer', isDefault: false, updatedAgo: '1 week ago', pages: 1, modifiedDate: '30 Apr 2025', atsScore: 90, status: 'Published' },
-        { id: 'demo-5', title: 'Data Analyst', isDefault: false, updatedAgo: '2 weeks ago', pages: 1, modifiedDate: '20 Apr 2025', atsScore: 68, status: 'Draft' },
+        {
+          id: 'demo-1',
+          title: 'Senior Frontend Developer',
+          targetRole: 'Senior React / Next.js Engineer',
+          skills: ['React', 'Next.js', 'TypeScript', 'Tailwind CSS', 'Redux', 'GraphQL'],
+          companies: ['Acme Inc', 'Vercel', 'Meta'],
+          isDefault: true,
+          updatedAgo: '2 hours ago',
+          pages: 2,
+          modifiedDate: '08 May 2025',
+          atsScore: 92,
+          status: 'Published',
+        },
+        {
+          id: 'demo-2',
+          title: 'Product Manager',
+          targetRole: 'Staff Product Manager',
+          skills: ['Product Strategy', 'Roadmapping', 'Agile', 'Jira', 'User Research', 'SQL'],
+          companies: ['Stripe', 'Google', 'Linear'],
+          isDefault: false,
+          updatedAgo: '2 days ago',
+          pages: 1,
+          modifiedDate: '06 May 2025',
+          atsScore: 88,
+          status: 'Draft',
+        },
+        {
+          id: 'demo-3',
+          title: 'Full Stack Developer',
+          targetRole: 'Lead Full Stack Engineer',
+          skills: ['Node.js', 'Express', 'PostgreSQL', 'Docker', 'AWS', 'Python'],
+          companies: ['Amazon', 'Uber', 'GitHub'],
+          isDefault: false,
+          updatedAgo: '5 days ago',
+          pages: 2,
+          modifiedDate: '03 May 2025',
+          atsScore: 74,
+          status: 'Draft',
+        },
+        {
+          id: 'demo-4',
+          title: 'UI/UX Designer',
+          targetRole: 'Senior Product Designer',
+          skills: ['Figma', 'User Testing', 'Design Systems', 'Wireframing', 'Prototyping'],
+          companies: ['Figma', 'Airbnb', 'Design Co'],
+          isDefault: false,
+          updatedAgo: '1 week ago',
+          pages: 1,
+          modifiedDate: '30 Apr 2025',
+          atsScore: 90,
+          status: 'Published',
+        },
+        {
+          id: 'demo-5',
+          title: 'Data Analyst',
+          targetRole: 'Senior Business Intelligence Analyst',
+          skills: ['Python', 'R', 'Tableau', 'Power BI', 'SQL', 'Data Modeling'],
+          companies: ['Snowflake', 'Databricks', 'Palantir'],
+          isDefault: false,
+          updatedAgo: '2 weeks ago',
+          pages: 1,
+          modifiedDate: '20 Apr 2025',
+          atsScore: 68,
+          status: 'Draft',
+        },
       ]);
       setLoading(false);
       return;
@@ -101,14 +161,43 @@ export default function ResumesPage() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const { data: rawResumes, error } = await supabase
         .from('resumes')
         .select('*')
         .eq('user_id', uid)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setResumes((data || []).map(toResumeItem));
+
+      if (rawResumes && rawResumes.length > 0) {
+        const resumeIds = rawResumes.map(r => r.id);
+        const [{ data: skillsData }, { data: expData }] = await Promise.all([
+          supabase.from('skills').select('resume_id, name').in('resume_id', resumeIds),
+          supabase.from('experiences').select('resume_id, company_name').in('resume_id', resumeIds),
+        ]);
+
+        const skillsMap: Record<string, string[]> = {};
+        (skillsData || []).forEach(s => {
+          if (!skillsMap[s.resume_id]) skillsMap[s.resume_id] = [];
+          if (s.name) skillsMap[s.resume_id].push(s.name);
+        });
+
+        const compMap: Record<string, string[]> = {};
+        (expData || []).forEach(e => {
+          if (!compMap[e.resume_id]) compMap[e.resume_id] = [];
+          if (e.company_name) compMap[e.resume_id].push(e.company_name);
+        });
+
+        setResumes(
+          rawResumes.map(r => ({
+            ...toResumeItem(r),
+            skills: skillsMap[r.id] || [],
+            companies: compMap[r.id] || [],
+          }))
+        );
+      } else {
+        setResumes([]);
+      }
     } catch (err: any) {
       console.error('[Resumes] fetch error:', err?.message ?? err);
       setErrorMsg('Failed to load resumes. Please try again.');
@@ -419,10 +508,10 @@ export default function ResumesPage() {
               ) : paginated.length === 0 ? (
                 <EmptyState
                   icon="📄"
-                  title={searchQuery ? 'No resumes match your search' : 'No resumes yet'}
+                  title="No resumes found."
                   description={
                     searchQuery
-                      ? 'Try a different search term or clear filters.'
+                      ? 'Try adjusting your search query or clear filters.'
                       : 'Create your first resume or import an existing PDF / DOCX.'
                   }
                   actionLabel={searchQuery ? 'Clear Search' : 'Create Resume'}
