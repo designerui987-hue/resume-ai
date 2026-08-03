@@ -87,7 +87,7 @@ export default function ResumesPage() {
   /* ───────── Auth + data fetch ───────── */
   const fetchResumes = useCallback(async (uid: string) => {
     if (uid === 'demo-user-id') {
-      // Use static demo cards with roles, skills, and companies for rich search
+      // Use static demo cards with roles, skills, and companies for rich search and filtering
       setResumes([
         {
           id: 'demo-1',
@@ -100,7 +100,7 @@ export default function ResumesPage() {
           pages: 2,
           modifiedDate: '08 May 2025',
           atsScore: 92,
-          status: 'Published',
+          status: 'Completed',
         },
         {
           id: 'demo-2',
@@ -139,7 +139,7 @@ export default function ResumesPage() {
           pages: 1,
           modifiedDate: '30 Apr 2025',
           atsScore: 90,
-          status: 'Published',
+          status: 'Completed',
         },
         {
           id: 'demo-5',
@@ -153,6 +153,19 @@ export default function ResumesPage() {
           modifiedDate: '20 Apr 2025',
           atsScore: 68,
           status: 'Draft',
+        },
+        {
+          id: 'demo-6',
+          title: 'Backend Engineer (Legacy)',
+          targetRole: 'Backend Engineer',
+          skills: ['Java', 'Spring Boot', 'MySQL'],
+          companies: ['Oracle'],
+          isDefault: false,
+          updatedAgo: '1 month ago',
+          pages: 1,
+          modifiedDate: '10 Mar 2025',
+          atsScore: 60,
+          status: 'Archived',
         },
       ]);
       setLoading(false);
@@ -208,6 +221,18 @@ export default function ResumesPage() {
 
   useEffect(() => {
     const init = async () => {
+      // Initialize state from URL query parameters if present
+      if (typeof window !== 'undefined') {
+        const searchParams = new URLSearchParams(window.location.search);
+        const fParam = searchParams.get('filter');
+        const sParam = searchParams.get('sort');
+        const qParam = searchParams.get('q');
+
+        if (fParam) setStatusFilter(fParam);
+        if (sParam) setSortBy(sParam);
+        if (qParam) setSearchQuery(qParam);
+      }
+
       const isDemo =
         typeof window !== 'undefined' &&
         localStorage.getItem('demo_user_logged_in') === 'true';
@@ -228,6 +253,19 @@ export default function ResumesPage() {
     };
     init();
   }, [router, fetchResumes]);
+
+  // Helper to sync state changes to URL query parameters without reloading
+  const updateUrlParams = (filterVal: string, sortVal: string, queryVal: string) => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams();
+    if (filterVal && filterVal !== 'all') params.set('filter', filterVal);
+    if (sortVal && sortVal !== 'modified') params.set('sort', sortVal);
+    if (queryVal && queryVal.trim()) params.set('q', queryVal.trim());
+
+    const newQueryStr = params.toString();
+    const newUrl = newQueryStr ? `${window.location.pathname}?${newQueryStr}` : window.location.pathname;
+    window.history.replaceState(null, '', newUrl);
+  };
 
   /* ───────── Actions ───────── */
   const handleCreateNew = () => {
@@ -398,6 +436,7 @@ export default function ResumesPage() {
   /* ───────── Filtering & sorting ───────── */
   const filtered = resumes
     .filter(r => {
+      // 1. Text search across Name, Role, Skills, Company
       const q = searchQuery.trim().toLowerCase();
       if (q) {
         const inTitle = r.title.toLowerCase().includes(q);
@@ -406,14 +445,22 @@ export default function ResumesPage() {
         const inCompanies = (r.companies ?? []).some(c => c.toLowerCase().includes(q));
         if (!inTitle && !inRole && !inSkills && !inCompanies) return false;
       }
+
+      // 2. Status / Category Filter
+      if (statusFilter === 'draft') return r.status === 'Draft';
+      if (statusFilter === 'completed') return r.status === 'Completed' || r.status === 'Published';
+      if (statusFilter === 'archived') return r.status === 'Archived';
+      if (statusFilter === 'recently_updated' || statusFilter === 'highest_ats' || statusFilter === 'all') {
+        return r.status !== 'Archived';
+      }
       if (statusFilter === 'default') return !!r.isDefault;
       if (statusFilter === 'ats') return r.atsScore >= 80;
-      if (statusFilter === 'published') return r.status === 'Published';
-      if (statusFilter === 'draft') return r.status === 'Draft';
-      return true;
+
+      return r.status !== 'Archived';
     })
     .sort((a, b) => {
-      if (sortBy === 'score') return b.atsScore - a.atsScore;
+      if (statusFilter === 'highest_ats' || sortBy === 'score') return b.atsScore - a.atsScore;
+      if (statusFilter === 'recently_updated' || sortBy === 'modified') return 0;
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       return 0;
     });
@@ -473,17 +520,31 @@ export default function ResumesPage() {
           {/* Filters Bar */}
           <Filters
             searchQuery={searchQuery}
-            onSearchChange={q => { setSearchQuery(q); setCurrentPage(1); }}
+            onSearchChange={q => {
+              setSearchQuery(q);
+              setCurrentPage(1);
+              updateUrlParams(statusFilter, sortBy, q);
+            }}
             statusFilter={statusFilter}
-            onStatusFilterChange={f => { setStatusFilter(f); setCurrentPage(1); }}
+            onStatusFilterChange={f => {
+              setStatusFilter(f);
+              setCurrentPage(1);
+              updateUrlParams(f, sortBy, searchQuery);
+            }}
             sortBy={sortBy}
-            onSortChange={setSortBy}
+            onSortChange={s => {
+              setSortBy(s);
+              updateUrlParams(statusFilter, s, searchQuery);
+            }}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             allResumes={resumes}
             onSelectSuggestion={id => {
               const match = resumes.find(r => r.id === id);
-              if (match) setSearchQuery(match.title);
+              if (match) {
+                setSearchQuery(match.title);
+                updateUrlParams(statusFilter, sortBy, match.title);
+              }
             }}
           />
 

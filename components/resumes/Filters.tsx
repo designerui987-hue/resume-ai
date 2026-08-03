@@ -195,11 +195,12 @@ export function Filters({
             onChange={e => onStatusFilterChange(e.target.value)}
             className="appearance-none pl-3.5 pr-8 py-2 rounded-xl bg-white border border-[#E4E4E7] text-xs font-semibold text-[#18181B] focus:outline-none cursor-pointer shadow-2xs"
           >
-            <option value="all">All Resumes</option>
-            <option value="published">Published</option>
-            <option value="draft">Drafts</option>
-            <option value="default">Default Only</option>
-            <option value="ats">ATS Optimized (&gt;80)</option>
+            <option value="all">All</option>
+            <option value="draft">Draft</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+            <option value="recently_updated">Recently Updated</option>
+            <option value="highest_ats">Highest ATS Score</option>
           </select>
           <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A] pointer-events-none" />
         </div>
