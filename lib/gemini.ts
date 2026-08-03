@@ -56,3 +56,47 @@ export async function generateCoverLetterWithGemini(fullName: string, targetRole
 
   return response.text?.trim() || '';
 }
+
+// Utility to enhance a specific text selection based on a chosen action
+export async function enhanceSelectedTextWithGemini(text: string, enhancementType: string): Promise<string> {
+  if (!process.env.GEMINI_API_KEY) {
+    switch (enhancementType) {
+      case 'improve': return text + ' (Improved for clarity and impact)';
+      case 'rewrite': return `Completely rewritten version of: ${text}`;
+      case 'shorten': return 'Shortened version.';
+      case 'expand': return `${text} This has been expanded with additional professional context and details to provide a more comprehensive overview.`;
+      case 'ats': return `${text} (Optimized with ATS keywords like leadership, strategy, and analytics)`;
+      default: return text;
+    }
+  }
+
+  let promptInstruction = '';
+  switch (enhancementType) {
+    case 'improve':
+      promptInstruction = 'Fix any grammar issues and improve the tone to be more professional, impactful, and active. Do not change the underlying meaning.';
+      break;
+    case 'rewrite':
+      promptInstruction = 'Completely rewrite this text to be more compelling and executive-level. Use strong action verbs and professional phrasing.';
+      break;
+    case 'shorten':
+      promptInstruction = 'Make this text as concise and punchy as possible without losing the core information. Remove fluff.';
+      break;
+    case 'expand':
+      promptInstruction = 'Expand on this text by adding professional detail and context. Make it sound like a well-rounded achievement or responsibility.';
+      break;
+    case 'ats':
+      promptInstruction = 'Optimize this text for Applicant Tracking Systems (ATS) by naturally injecting standard industry keywords and formatting it professionally. Keep it realistic.';
+      break;
+    default:
+      promptInstruction = 'Improve this text professionally.';
+  }
+
+  const prompt = `You are an expert resume writer. ${promptInstruction}\n\nHere is the text to process:\n"${text}"\n\nReturn ONLY the updated text without any conversational filler, markdown formatting, or quotes around it.`;
+
+  const response = await aiClient.models.generateContent({
+    model: 'gemini-2.5-flash',
+    contents: prompt,
+  });
+
+  return response.text?.trim() || '';
+}

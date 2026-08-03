@@ -3,6 +3,7 @@ import {
   generateSummaryWithGemini,
   rewriteExperienceWithGemini,
   generateCoverLetterWithGemini,
+  enhanceSelectedTextWithGemini,
 } from '@/lib/gemini';
 
 export async function POST(req: NextRequest) {
@@ -22,6 +23,12 @@ export async function POST(req: NextRequest) {
 
     if (action === 'generateCoverLetter') {
       const result = await generateCoverLetterWithGemini(fullName, targetRole, companyName, skills || []);
+      return NextResponse.json({ result });
+    }
+
+    if (action === 'enhanceText') {
+      const { text, enhancementType } = body;
+      const result = await enhanceSelectedTextWithGemini(text, enhancementType);
       return NextResponse.json({ result });
     }
 

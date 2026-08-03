@@ -51,6 +51,7 @@ export const educationItemSchema = z.object({
   endDate: z.string().optional(),
   isCurrent: z.boolean().optional(),
   gpa: z.string().optional(),
+  description: z.string().optional(),
 });
 
 export const educationsSchema = z.object({

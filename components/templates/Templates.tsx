@@ -4,10 +4,11 @@ import React from 'react';
 import { FullResumeFormValues } from '@/types/resume';
 
 interface TemplateProps {
+  onSectionClick?: (section: string) => void;
   data: FullResumeFormValues;
 }
 
-export function ModernTemplate({ data }: TemplateProps) {
+export function ModernTemplate({ data, onSectionClick }: TemplateProps) {
   const { personal, summary, skills, experiences, educations, projects } = data;
 
   return (
@@ -17,7 +18,7 @@ export function ModernTemplate({ data }: TemplateProps) {
       style={{ boxSizing: 'border-box' }}
     >
       {/* Modern Header: Indigo accents & badge style */}
-      <header className="border-b-2 border-indigo-600 pb-5 mb-5">
+      <header onClick={() => onSectionClick?.('personal')} className="border-b-2 border-indigo-600 pb-5 mb-5 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
         <h1 className="text-3xl font-black text-slate-900 tracking-tight">
           {personal?.fullName || 'YOUR FULL NAME'}
         </h1>
@@ -49,7 +50,7 @@ export function ModernTemplate({ data }: TemplateProps) {
 
       {/* Summary */}
       {summary?.summary && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('summary')} className="2303 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-indigo-900 uppercase tracking-widest bg-indigo-50 border-l-4 border-indigo-600 px-2.5 py-1 mb-2">
             Professional Summary
           </h2>
@@ -61,7 +62,7 @@ export function ModernTemplate({ data }: TemplateProps) {
 
       {/* Experience */}
       {experiences && experiences.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('experiences')} className="2933 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-indigo-900 uppercase tracking-widest bg-indigo-50 border-l-4 border-indigo-600 px-2.5 py-1 mb-2.5">
             Work Experience
           </h2>
@@ -90,7 +91,7 @@ export function ModernTemplate({ data }: TemplateProps) {
 
       {/* Projects */}
       {projects && projects.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('projects')} className="4413 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-indigo-900 uppercase tracking-widest bg-indigo-50 border-l-4 border-indigo-600 px-2.5 py-1 mb-2.5">
             Projects
           </h2>
@@ -121,7 +122,7 @@ export function ModernTemplate({ data }: TemplateProps) {
 
       {/* Education */}
       {educations && educations.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('educations')} className="5833 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-indigo-900 uppercase tracking-widest bg-indigo-50 border-l-4 border-indigo-600 px-2.5 py-1 mb-2.5">
             Education
           </h2>
@@ -145,7 +146,7 @@ export function ModernTemplate({ data }: TemplateProps) {
 
       {/* Skills */}
       {skills && skills.length > 0 && (
-        <section>
+        <section onClick={() => onSectionClick?.('skills')} className="7030 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-indigo-900 uppercase tracking-widest bg-indigo-50 border-l-4 border-indigo-600 px-2.5 py-1 mb-2">
             Skills & Competencies
           </h2>
@@ -162,7 +163,7 @@ export function ModernTemplate({ data }: TemplateProps) {
   );
 }
 
-export function ProfessionalTemplate({ data }: TemplateProps) {
+export function ProfessionalTemplate({ data, onSectionClick }: TemplateProps) {
   const { personal, summary, skills, experiences, educations, projects } = data;
 
   return (
@@ -172,7 +173,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
       style={{ boxSizing: 'border-box' }}
     >
       {/* Classic Executive Professional Header */}
-      <header className="border-b-2 border-slate-900 pb-4 mb-5 text-center">
+      <header onClick={() => onSectionClick?.('personal')} className="border-b-2 border-slate-900 pb-4 mb-5 text-center hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-wider uppercase">
           {personal?.fullName || 'YOUR FULL NAME'}
         </h1>
@@ -192,7 +193,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
 
       {/* Summary */}
       {summary?.summary && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('summary')} className="8667 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest border-b border-slate-400 pb-0.5 mb-1.5 text-center">
             Executive Summary
           </h2>
@@ -204,7 +205,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
 
       {/* Experience */}
       {experiences && experiences.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('experiences')} className="9455 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest border-b border-slate-400 pb-0.5 mb-2 text-center">
             Professional Experience
           </h2>
@@ -233,7 +234,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
 
       {/* Projects */}
       {projects && projects.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('projects')} className="11077 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest border-b border-slate-400 pb-0.5 mb-2 text-center">
             Notable Projects
           </h2>
@@ -259,7 +260,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
 
       {/* Education */}
       {educations && educations.length > 0 && (
-        <section className="mb-5">
+        <section onClick={() => onSectionClick?.('educations')} className="12474 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
           <h2 className="text-xs font-bold text-slate-900 uppercase tracking-widest border-b border-slate-400 pb-0.5 mb-2 text-center">
             Education & Certifications
           </h2>
@@ -295,7 +296,7 @@ export function ProfessionalTemplate({ data }: TemplateProps) {
   );
 }
 
-export function MinimalTemplate({ data }: TemplateProps) {
+export function MinimalTemplate({ data, onSectionClick }: TemplateProps) {
   const { personal, summary, skills, experiences, educations, projects } = data;
 
   return (
@@ -305,7 +306,7 @@ export function MinimalTemplate({ data }: TemplateProps) {
       style={{ boxSizing: 'border-box' }}
     >
       {/* Clean Minimalist Header */}
-      <header className="mb-6">
+      <header onClick={() => onSectionClick?.('personal')} className="mb-6 hover:bg-slate-50/50 hover:ring-2 hover:ring-indigo-300 hover:ring-offset-2 cursor-pointer transition-all rounded-md">
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
           {personal?.fullName || 'YOUR FULL NAME'}
         </h1>

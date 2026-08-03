@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,8 +14,25 @@ import ExperienceForm from '@/components/editor/ExperienceForm';
 import EducationForm from '@/components/editor/EducationForm';
 import ProjectsForm from '@/components/editor/ProjectsForm';
 import ResumePreview, { TemplateType } from '@/components/preview/ResumePreview';
+import PreviewPane from '@/components/preview/PreviewPane';
 import CoverLetterModal from '@/components/modals/CoverLetterModal';
-import AIAssistantPanel from '@/components/ai/AIAssistantPanel';
+import AIAssistantDrawer from '@/components/ai/AIAssistantDrawer';
+import { Button } from '@/components/ui/button';
+import { calculateDynamicATSScore } from '@/lib/ats';
+import { logActivity } from '@/lib/activityLogger';
+import {
+  RotateCcw,
+  RotateCw,
+  Share2,
+  ArrowLeft,
+  Sparkles,
+  Download,
+  Edit3,
+  Loader2,
+  CheckSquare,
+  ChevronDown,
+} from 'lucide-react';
+import ATSDrawer from '@/components/modals/ATSDrawer';
 
 type ActiveSection =
   | 'personal'
@@ -25,6 +42,14 @@ type ActiveSection =
   | 'educations'
   | 'projects';
 
+interface SectionItem {
+  id: string;
+  label: string;
+  icon: string;
+  description: string;
+  canDelete: boolean;
+}
+
 const SECTIONS: { id: ActiveSection; label: string; icon: string; description: string }[] = [
   { id: 'personal', label: 'Personal Info', icon: '👤', description: 'Contact details & basic info' },
   { id: 'summary', label: 'Summary', icon: '📝', description: 'Professional background' },
@@ -32,15 +57,6 @@ const SECTIONS: { id: ActiveSection; label: string; icon: string; description: s
   { id: 'educations', label: 'Education', icon: '🎓', description: 'Degrees & qualifications' },
   { id: 'skills', label: 'Skills', icon: '⚡', description: 'Technical & soft skills' },
   { id: 'projects', label: 'Projects', icon: '🚀', description: 'Featured work' },
-];
-
-const AI_ACTIONS = [
-  { label: 'Improve Summary', description: 'Make your summary stronger', icon: '✨' },
-  { label: 'Rewrite Experience', description: 'Enhance your work experience', icon: '🔄' },
-  { label: 'Key Skills Suggestion', description: 'Get relevant skills for your role', icon: '⚡' },
-  { label: 'Check ATS Score', description: 'Analyze and improve ATS score', icon: '📊' },
-  { label: 'Generate Cover Letter', description: 'Create a matching cover letter', icon: '✉️' },
-  { label: 'Optimize for Job', description: 'Tailor resume for a job description', icon: '🎯' },
 ];
 
 export default function ResumeEditorPage() {
@@ -53,62 +69,64 @@ export default function ResumeEditorPage() {
   const [loading, setLoading] = useState(true);
   const [isCoverLetterModalOpen, setIsCoverLetterModalOpen] = useState(false);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [secondsAgo, setSecondsAgo] = useState<number>(0);
   const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleInput, setTitleInput] = useState(resumeTitle);
   const [isExporting, setIsExporting] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(90);
-  const [previewWidth, setPreviewWidth] = useState(500);
-  const [isResizing, setIsResizing] = useState(false);
+  const [showAtsDrawer, setShowAtsDrawer] = useState(false);
 
-  const startResizing = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-  }, []);
-
-  const stopResizing = useCallback(() => {
-    setIsResizing(false);
-  }, []);
-
-  const resize = useCallback(
-    (e: MouseEvent) => {
-      if (isResizing) {
-        const newWidth = window.innerWidth - e.clientX;
-        if (newWidth >= 320 && newWidth <= 900) {
-          setPreviewWidth(newWidth);
-        }
-      }
-    },
-    [isResizing]
-  );
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [previewWidth, setPreviewWidth] = useState(45);
+  const isDragging = useRef(false);
 
   useEffect(() => {
-    if (isResizing) {
-      window.addEventListener('mousemove', resize);
-      window.addEventListener('mouseup', stopResizing);
-    } else {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
-    }
-    return () => {
-      window.removeEventListener('mousemove', resize);
-      window.removeEventListener('mouseup', stopResizing);
+    const handleMouseMove = (e) => {
+      if (!isDragging.current) return;
+      const sidebarWidth = isSidebarCollapsed ? 64 : 220;
+      const availableWidth = window.innerWidth - sidebarWidth;
+      const newEditorWidth = e.clientX - sidebarWidth;
+      let newPreviewWidth = ((availableWidth - newEditorWidth) / availableWidth) * 100;
+      newPreviewWidth = Math.max(30, Math.min(65, newPreviewWidth));
+      setPreviewWidth(newPreviewWidth);
     };
-  }, [isResizing, resize, stopResizing]);
 
-  const handleZoomIn = () => setZoomLevel((prev) => Math.min(150, prev + 10));
-  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 10));
-  const handleZoomReset = () => setZoomLevel(100);
-
-  const handleWheelZoom = (e: React.WheelEvent) => {
-    if (e.ctrlKey || e.metaKey) {
-      e.preventDefault();
-      if (e.deltaY < 0) {
-        handleZoomIn();
-      } else {
-        handleZoomOut();
+    const handleMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        document.body.style.cursor = 'default';
+        document.body.style.userSelect = 'auto';
       }
-    }
-  };
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isSidebarCollapsed]);
+
+  const [zoomLevel, setZoomLevel] = useState(90);
+  const [shareToast, setShareToast] = useState(false);
+
+  // Sidebar state & actions
+  const [sections, setSections] = useState<SectionItem[]>([
+    { id: 'personal', label: 'Personal Information', icon: '👤', description: 'Contact details & basic info', canDelete: false },
+    { id: 'summary', label: 'Summary', icon: '📝', description: 'Professional background', canDelete: true },
+    { id: 'experiences', label: 'Experience', icon: '💼', description: 'Work history', canDelete: true },
+    { id: 'educations', label: 'Education', icon: '🎓', description: 'Degrees & qualifications', canDelete: true },
+    { id: 'skills', label: 'Skills', icon: '⚡', description: 'Technical & soft skills', canDelete: true },
+    { id: 'projects', label: 'Projects', icon: '🚀', description: 'Featured work', canDelete: true },
+  ]);
+  const [showAddSectionModal, setShowAddSectionModal] = useState(false);
+  const [customSectionInput, setCustomSectionInput] = useState('');
+
+  // Undo / Redo History Stack
+  const [history, setHistory] = useState<FullResumeFormValues[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
 
   const {
     register,
@@ -130,14 +148,109 @@ export default function ResumeEditorPage() {
     },
   });
 
+  const formData = watch();
+
+  // Dynamic ATS Score calculated from active form data
+  const atsDetails = calculateDynamicATSScore({
+    title: formData.personal?.title,
+    summary: formData.summary?.summary,
+    skills: formData.skills,
+    experiences: formData.experiences,
+    contact_email: formData.personal?.contactEmail,
+    location: formData.personal?.location,
+  });
+
+  // Keep track of seconds since last save
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (lastSavedAt) {
+        setSecondsAgo(Math.floor((Date.now() - lastSavedAt) / 1000));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lastSavedAt]);
+
+  // History recorder for Undo/Redo
+  useEffect(() => {
+    if (loading) return;
+    const timer = setTimeout(() => {
+      setHistory((prev) => {
+        const last = prev[historyIndex];
+        if (last && JSON.stringify(last) === JSON.stringify(formData)) return prev;
+        const next = [...prev.slice(0, historyIndex + 1), formData];
+        setHistoryIndex(next.length - 1);
+        return next;
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [formData, loading]);
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prev = history[historyIndex - 1];
+      reset(prev);
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
+  const handleRedo = () => {
+    if (historyIndex < history.length - 1) {
+      const next = history[historyIndex + 1];
+      reset(next);
+      setHistoryIndex(historyIndex + 1);
+    }
+  };
+
+  // Keyboard Shortcuts Listener (Ctrl+S, Ctrl+Z, Ctrl+Shift+Z, Ctrl+/)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
+      // Ctrl + S: Save
+      if (isCtrlOrCmd && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSubmit(saveToSupabase)();
+      }
+
+      // Ctrl + Shift + Z or Ctrl + Y: Redo
+      else if (isCtrlOrCmd && ((e.shiftKey && e.key.toLowerCase() === 'z') || e.key.toLowerCase() === 'y')) {
+        e.preventDefault();
+        handleRedo();
+      }
+
+      // Ctrl + Z: Undo
+      else if (isCtrlOrCmd && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Ctrl + /: Toggle AI Drawer
+      else if (isCtrlOrCmd && e.key === '/') {
+        e.preventDefault();
+        setShowAiPanel((prev) => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSubmit, saveToSupabase, handleUndo, handleRedo]);
+
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(150, prev + 10));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 10));
+  
+
+  
+
   // Load resume data
   useEffect(() => {
     async function loadResumeData() {
       if (!resumeId) return;
 
       if (resumeId.startsWith('demo-') || (typeof window !== 'undefined' && localStorage.getItem('demo_user_logged_in') === 'true')) {
-        setResumeTitle('Senior Product Designer');
-        reset({
+        const demoTitle = 'Senior Product Designer';
+        setResumeTitle(demoTitle);
+        setTitleInput(demoTitle);
+        const demoValues: FullResumeFormValues = {
           personal: {
             fullName: 'Alex Morgan',
             title: 'Senior Product Designer',
@@ -191,16 +304,7 @@ export default function ResumeEditorPage() {
               endDate: '2019-05-01',
               isCurrent: false,
               gpa: '3.9',
-            },
-            {
-              institution: 'University of California, Berkeley',
-              degree: 'Bachelor of Fine Arts in Design',
-              fieldOfStudy: 'Interaction Design',
-              location: 'Berkeley, CA',
-              startDate: '2013-09-01',
-              endDate: '2017-05-01',
-              isCurrent: false,
-              gpa: '3.7',
+              description: 'Focused on user-centered design, prototyping, and qualitative research methods.',
             },
           ],
           projects: [
@@ -211,7 +315,10 @@ export default function ResumeEditorPage() {
               linkUrl: 'https://github.com/example/resume-ai',
             },
           ],
-        });
+        };
+        reset(demoValues);
+        setHistory([demoValues]);
+        setHistoryIndex(0);
         setLoading(false);
         return;
       }
@@ -225,7 +332,11 @@ export default function ResumeEditorPage() {
           .single();
 
         if (resumeErr) throw resumeErr;
-        if (resumeData) setResumeTitle(resumeData.title || 'Untitled Resume');
+        if (resumeData) {
+          const title = resumeData.title || 'Untitled Resume';
+          setResumeTitle(title);
+          setTitleInput(title);
+        }
 
         const [{ data: expData }, { data: eduData }, { data: skillData }, { data: projData }] =
           await Promise.all([
@@ -235,7 +346,7 @@ export default function ResumeEditorPage() {
             supabase.from('projects').select('*').eq('resume_id', resumeId).order('display_order'),
           ]);
 
-        reset({
+        const loadedValues: FullResumeFormValues = {
           personal: {
             fullName: '',
             title: resumeData?.target_role || '',
@@ -249,9 +360,13 @@ export default function ResumeEditorPage() {
           summary: { summary: resumeData?.summary || '' },
           skills: (skillData || []).map((s) => ({ id: s.id, name: s.name, category: s.category || 'General', proficiencyLevel: s.proficiency_level || 'Intermediate' })),
           experiences: (expData || []).map((e) => ({ id: e.id, companyName: e.company_name, position: e.position, location: e.location || '', startDate: e.start_date || '', endDate: e.end_date || '', isCurrent: e.is_current || false, description: e.description || '' })),
-          educations: (eduData || []).map((ed) => ({ id: ed.id, institution: ed.institution, degree: ed.degree, fieldOfStudy: ed.field_of_study || '', location: ed.location || '', startDate: ed.start_date || '', endDate: ed.end_date || '', isCurrent: ed.is_current || false, gpa: ed.gpa || '' })),
+          educations: (eduData || []).map((ed) => ({ id: ed.id, institution: ed.institution, degree: ed.degree, fieldOfStudy: ed.field_of_study || '', location: ed.location || '', startDate: ed.start_date || '', endDate: ed.end_date || '', isCurrent: ed.is_current || false, gpa: ed.gpa || '', description: ed.description || '' })),
           projects: (projData || []).map((p) => ({ id: p.id, name: p.name, description: p.description || '', technologies: p.technologies || '', linkUrl: p.link_url || '' })),
-        });
+        };
+
+        reset(loadedValues);
+        setHistory([loadedValues]);
+        setHistoryIndex(0);
       } catch (err) {
         console.error('Error loading resume:', err);
       } finally {
@@ -269,6 +384,8 @@ export default function ResumeEditorPage() {
       if (resumeId.startsWith('demo-') || (typeof window !== 'undefined' && localStorage.getItem('demo_user_logged_in') === 'true')) {
         setTimeout(() => {
           setSaveState('saved');
+          setLastSavedAt(Date.now());
+          setSecondsAgo(0);
           setTimeout(() => setSaveState('idle'), 2500);
         }, 300);
         return;
@@ -301,7 +418,7 @@ export default function ResumeEditorPage() {
 
         await supabase.from('education').delete().eq('resume_id', resumeId);
         if (values.educations.length > 0)
-          await supabase.from('education').insert(values.educations.map((ed, idx) => ({ resume_id: resumeId, institution: ed.institution || 'School', degree: ed.degree || 'Degree', field_of_study: ed.fieldOfStudy || null, location: ed.location || null, start_date: ed.startDate || null, end_date: ed.endDate || null, is_current: ed.isCurrent, gpa: ed.gpa || null, display_order: idx })));
+          await supabase.from('education').insert(values.educations.map((ed, idx) => ({ resume_id: resumeId, institution: ed.institution || 'School', degree: ed.degree || 'Degree', field_of_study: ed.fieldOfStudy || null, location: ed.location || null, start_date: ed.startDate || null, end_date: ed.endDate || null, is_current: ed.isCurrent, gpa: ed.gpa || null, description: ed.description || null, display_order: idx })));
 
         try {
           await supabase.from('projects').delete().eq('resume_id', resumeId);
@@ -310,6 +427,8 @@ export default function ResumeEditorPage() {
         } catch {}
 
         setSaveState('saved');
+        setLastSavedAt(Date.now());
+        setSecondsAgo(0);
         setTimeout(() => setSaveState('idle'), 2500);
       } catch (err) {
         console.error('Autosave error:', err);
@@ -330,7 +449,28 @@ export default function ResumeEditorPage() {
     return () => subscription.unsubscribe();
   }, [watch, handleSubmit, saveToSupabase]);
 
-  const formData = watch();
+  const handleTitleSave = async () => {
+    const trimmed = titleInput.trim();
+    if (!trimmed) {
+      setTitleInput(resumeTitle);
+      setIsEditingTitle(false);
+      return;
+    }
+    setResumeTitle(trimmed);
+    setIsEditingTitle(false);
+    logActivity('edited', trimmed);
+    if (resumeId && !resumeId.startsWith('demo-')) {
+      await supabase.from('resumes').update({ title: trimmed, updated_at: new Date().toISOString() }).eq('id', resumeId);
+    }
+  };
+
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+      navigator.clipboard.writeText(window.location.href);
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 3000);
+    }
+  };
 
   const handleDownloadPdf = async () => {
     setIsExporting(true);
@@ -372,167 +512,452 @@ export default function ResumeEditorPage() {
     }
   };
 
-  // Keyboard shortcut: Cmd/Ctrl+J to toggle AI panel
+  // Keyboard shortcut: Cmd/Ctrl+J to toggle AI panel, Cmd+Z Undo, Cmd+Shift+Z Redo
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
         e.preventDefault();
         setShowAiPanel((p) => !p);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [historyIndex, history]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] flex items-center justify-center font-sans">
         <div className="flex flex-col items-center gap-3">
-          <svg className="animate-spin h-7 w-7 text-[#111827]" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-          </svg>
+          <Loader2 className="animate-spin h-7 w-7 text-[#111827]" />
           <p className="text-xs text-[#71717A] font-medium">Loading resume editor...</p>
         </div>
       </div>
     );
   }
 
+  // Calculate dynamic section completion status
+  const getSectionStatus = (sectionId: string): { status: 'complete' | 'warning' | 'empty'; icon: string; dotColor: string; label: string } => {
+    switch (sectionId) {
+      case 'personal': {
+        const p = formData.personal;
+        if (p?.fullName && p?.title && p?.contactEmail) {
+          return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        }
+        if (p?.fullName || p?.title) {
+          return { status: 'warning', icon: '⚠', dotColor: 'bg-amber-500', label: 'Incomplete' };
+        }
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      case 'summary': {
+        const sum = formData.summary?.summary || '';
+        if (sum.length > 50) return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        if (sum.length > 0) return { status: 'warning', icon: '⚠', dotColor: 'bg-amber-500', label: 'Incomplete' };
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      case 'experiences': {
+        const exp = formData.experiences || [];
+        if (exp.length > 0 && exp.some((e) => e.description)) {
+          return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        }
+        if (exp.length > 0) return { status: 'warning', icon: '⚠', dotColor: 'bg-amber-500', label: 'Incomplete' };
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      case 'educations': {
+        const edu = formData.educations || [];
+        if (edu.length > 0) return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      case 'skills': {
+        const sk = formData.skills || [];
+        if (sk.length >= 4) return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        if (sk.length > 0) return { status: 'warning', icon: '⚠', dotColor: 'bg-amber-500', label: 'Incomplete' };
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      case 'projects': {
+        const pr = formData.projects || [];
+        if (pr.length > 0) return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+        return { status: 'empty', icon: '○', dotColor: 'bg-zinc-300', label: 'Empty' };
+      }
+      default:
+        return { status: 'complete', icon: '✓', dotColor: 'bg-emerald-500', label: 'Complete' };
+    }
+  };
+
+  const completedCount = sections.filter((s) => getSectionStatus(s.id).status === 'complete').length;
+
+  const moveSection = (index: number, direction: 'up' | 'down', e: React.MouseEvent) => {
+    e.stopPropagation();
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= sections.length) return;
+    const next = [...sections];
+    const [removed] = next.splice(index, 1);
+    next.splice(targetIndex, 0, removed);
+    setSections(next);
+  };
+
+  const handleAddSection = (title: string, icon = '✨') => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const id = 'custom-' + Date.now();
+    const newSec: SectionItem = {
+      id,
+      label: trimmed,
+      icon,
+      description: 'Custom Section',
+      canDelete: true,
+    };
+    setSections((prev) => [...prev, newSec]);
+    setActiveSection(id as any);
+    setCustomSectionInput('');
+    setShowAddSectionModal(false);
+  };
+
+  const handleDeleteSection = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (sections.length <= 1) return;
+    const filtered = sections.filter((s) => s.id !== id);
+    setSections(filtered);
+    if (activeSection === id) {
+      setActiveSection(filtered[0].id as any);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] font-sans selection:bg-zinc-200 selection:text-zinc-900 antialiased">
-      {/* ─── Top Navigation Bar ─── */}
-      <header className="sticky top-0 z-30 h-14 bg-white border-b border-[#E4E4E7] flex items-center justify-between px-4 sm:px-6">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/resumes"
-            className="p-1.5 rounded-lg text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 transition-colors"
-          >
-            ←
+    <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] font-sans selection:bg-zinc-200 selection:text-zinc-900 antialiased flex flex-col h-screen overflow-hidden">
+      
+      {/* ─── Header ─── */}
+      <header className="h-14 bg-white border-b border-[#E4E4E7] flex items-center justify-between px-3 sm:px-4 shrink-0 z-30 overflow-x-auto whitespace-nowrap select-none gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <Link href="/resumes">
+            <Button variant="ghost" size="sm" title="Back to Resumes">
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Back</span>
+            </Button>
           </Link>
-          <div>
-            <h1 className="text-sm font-bold text-[#18181B] leading-tight">{resumeTitle}</h1>
-            <div className="flex items-center gap-1.5">
-              {saveState === 'saving' && (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#B45309] animate-pulse" />
-                  <span className="text-[11px] text-[#B45309]">Saving...</span>
-                </>
-              )}
-              {saveState === 'saved' && (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
-                  <span className="text-[11px] text-[#15803D] font-medium">Saved</span>
-                </>
-              )}
-              {saveState === 'error' && (
-                <>
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#B91C1C]" />
-                  <span className="text-[11px] text-[#B91C1C]">Save failed</span>
-                </>
-              )}
-              {saveState === 'idle' && (
-                <span className="text-[11px] text-[#71717A]">Autosave active</span>
-              )}
-            </div>
+
+          <div className="h-4 w-px bg-[#E4E4E7]" />
+
+          {isEditingTitle ? (
+            <input
+              type="text"
+              autoFocus
+              value={titleInput}
+              onChange={(e) => setTitleInput(e.target.value)}
+              onBlur={handleTitleSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleTitleSave();
+                if (e.key === 'Escape') {
+                  setTitleInput(resumeTitle);
+                  setIsEditingTitle(false);
+                }
+              }}
+              className="px-2 py-0.5 text-xs font-bold text-[#18181B] bg-white border border-[#111827] rounded-md focus:outline-none max-w-[160px] sm:max-w-[220px] shadow-2xs"
+            />
+          ) : (
+            <button
+              onClick={() => setIsEditingTitle(true)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors text-xs font-bold text-[#18181B] group/title cursor-pointer max-w-[160px] sm:max-w-[220px]"
+              title="Click to rename"
+            >
+              <span className="truncate">{resumeTitle}</span>
+              <Edit3 className="w-3 h-3 text-[#71717A] opacity-60 group-hover/title:opacity-100 shrink-0" />
+            </button>
+          )}
+
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[#FAFAF9] border border-[#E4E4E7] text-[11px] font-medium text-[#71717A]">
+            {saveState === 'saving' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#D97706] animate-pulse" />
+                <span className="text-[#D97706] font-semibold">Saving...</span>
+              </>
+            ) : saveState === 'error' ? (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]" />
+                <span className="text-[#DC2626] font-semibold">Save failed</span>
+              </>
+            ) : (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-[#15803D]" />
+                <span>
+                  {saveState === 'saved' || secondsAgo < 5
+                    ? 'Saved just now'
+                    : `Saved ${secondsAgo}s ago`}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Template Switcher */}
-          <div className="hidden sm:flex items-center gap-1 p-1 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7]">
-            <span className="text-xs text-[#71717A] font-semibold px-2">Template</span>
-            {(['modern', 'professional', 'minimal'] as TemplateType[]).map((tmpl) => (
-              <button
-                key={tmpl}
-                type="button"
-                onClick={() => setActiveTemplate(tmpl)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium capitalize transition-all cursor-pointer ${
-                  activeTemplate === tmpl
-                    ? 'bg-white text-[#18181B] shadow-2xs border border-[#E4E4E7]'
-                    : 'text-[#71717A] hover:text-[#18181B]'
-                }`}
-              >
-                {tmpl}
-              </button>
-            ))}
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleUndo}
+            disabled={historyIndex <= 0}
+            title="Undo (⌘Z)"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRedo}
+            disabled={historyIndex >= history.length - 1}
+            title="Redo (⌘⇧Z)"
+          >
+            <RotateCw className="w-3.5 h-3.5" />
+          </Button>
+
+          <div className="h-4 w-px bg-[#E4E4E7] hidden md:block" />
+
+          <div className="relative">
+            <select
+              value={activeTemplate}
+              onChange={(e) => setActiveTemplate(e.target.value as TemplateType)}
+              className="px-2.5 py-1 rounded-lg bg-[#FAFAF9] border border-[#E4E4E7] text-[11px] font-bold text-[#18181B] focus:outline-none focus:ring-1 focus:ring-[#111827] cursor-pointer transition-all appearance-none pr-6 shadow-2xs"
+            >
+              <option value="modern">Modern Template</option>
+              <option value="professional">Professional Template</option>
+              <option value="minimal">Minimal Template</option>
+            </select>
+            <ChevronDown className="w-3 h-3 text-[#71717A] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
-          {/* AI Assistant Toggle */}
+          <div className="h-4 w-px bg-[#E4E4E7]" />
+
           <button
+            type="button"
+            onClick={() => setShowAtsDrawer(true)}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${atsDetails.badgeBg} ${atsDetails.borderClass} text-xs font-bold ${atsDetails.badgeText} hover:opacity-90 transition-all cursor-pointer shadow-2xs`}
+            title="Click to open ATS Optimization Check"
+          >
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: atsDetails.colorHex }} />
+            <span>{atsDetails.overallScore}% ATS</span>
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Button
+            variant={showAiPanel ? 'default' : 'outline'}
+            size="sm"
             onClick={() => setShowAiPanel((p) => !p)}
-            className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer transition-all ${
-              showAiPanel
-                ? 'bg-[#111827] text-white border-[#111827]'
-                : 'bg-white hover:bg-zinc-50 text-[#18181B] border-[#E4E4E7]'
-            }`}
             title="Toggle AI Assistant (⌘J)"
           >
-            ✨ AI Assistant
-          </button>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Assistant</span>
+          </Button>
 
-          {/* Download */}
-          <button
+          <Button
+            variant="default"
+            size="sm"
             onClick={handleDownloadPdf}
             disabled={isExporting}
-            className="btn-micro inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#111827] hover:bg-[#27272A] text-white shadow-xs cursor-pointer disabled:opacity-50"
           >
             {isExporting ? (
-              <>
-                <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span>Exporting...</span>
-              </>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <>↓ Download</>
+              <Download className="w-3.5 h-3.5" />
             )}
-          </button>
+            <span>{isExporting ? 'Exporting...' : 'Download PDF'}</span>
+          </Button>
 
-          {/* Share placeholder */}
-          <button className="btn-micro hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-[#18181B] border border-[#E4E4E7] cursor-pointer">
-            Share
-          </button>
+          <Button variant="outline" size="sm" onClick={handleShare} title="Copy share link">
+            <Share2 className="w-3.5 h-3.5" />
+            <span>Share</span>
+          </Button>
         </div>
       </header>
 
-      {/* ─── 3-Panel Layout ─── */}
-      <div className="flex h-[calc(100vh-56px)]">
-        {/* ── Panel 1: Left Sidebar Navigation ── */}
-        <aside className="w-52 shrink-0 hidden md:flex flex-col bg-white border-r border-[#E4E4E7] overflow-y-auto">
-          <div className="p-4">
-            <p className="text-[10px] font-bold text-[#71717A] uppercase tracking-widest mb-3">SECTIONS</p>
-            <nav className="space-y-0.5">
-              {SECTIONS.map((section) => (
-                <button
-                  key={section.id}
-                  onClick={() => setActiveSection(section.id)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer ${
-                    activeSection === section.id
-                      ? 'bg-zinc-100 text-[#18181B] font-bold'
-                      : 'text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]'
-                  }`}
-                >
-                  <span className="text-sm">{section.icon}</span>
-                  <span className="text-xs font-semibold">{section.label}</span>
-                </button>
-              ))}
+      {shareToast && (
+        <div className="fixed top-16 right-6 z-50 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold shadow-xl flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+          <CheckSquare className="w-4 h-4 text-emerald-600 shrink-0" />
+          <span>Resume share link copied to clipboard!</span>
+        </div>
+      )}
+
+      {/* ─── CSS Grid Workspace Layout with Sticky Left Sidebar ─── */}
+      <div className="flex-1 grid overflow-hidden bg-[#FAFAF9] transition-all duration-200" style={{ gridTemplateColumns: isSidebarCollapsed ? `64px minmax(0, ${100 - previewWidth}fr) auto minmax(0, ${previewWidth}fr)` : `220px minmax(0, ${100 - previewWidth}fr) auto minmax(0, ${previewWidth}fr)` }}>
+        
+        {/* ── Column 1: Redesigned Sticky Left Sidebar ── */}
+        <aside className="sticky top-14 h-[calc(100vh-56px)] hidden lg:flex flex-col bg-white border-r border-[#E4E4E7] justify-between shrink-0 select-none z-20">
+          <div className="p-3 space-y-3 overflow-y-auto flex-1">
+            {/* Sidebar Header & Collapse Toggle */}
+            <div className="flex items-center justify-between px-1">
+              {!isSidebarCollapsed ? (
+                <>
+                  <p className="text-[10px] font-bold text-[#71717A] uppercase tracking-wider">SECTIONS</p>
+                  <span className="text-[10px] font-bold text-[#15803D] bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                    {completedCount}/{sections.length} Done
+                  </span>
+                </>
+              ) : null}
+              <button
+                onClick={() => setIsSidebarCollapsed((p) => !p)}
+                className="p-1 rounded-lg text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 transition-colors mx-auto"
+                title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              >
+                {isSidebarCollapsed ? '➔' : '⬅'}
+              </button>
+            </div>
+
+            {/* Section Item List */}
+            <nav className="space-y-1">
+              {sections.map((section, idx) => {
+                const isActive = activeSection === section.id;
+                const statusInfo = getSectionStatus(section.id);
+                return (
+                  <div
+                    key={section.id}
+                    onClick={() => setActiveSection(section.id as any)}
+                    className={`group/sec relative w-full flex items-center justify-between px-2.5 py-2 rounded-xl transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-zinc-100 text-[#18181B] font-bold shadow-2xs'
+                        : 'text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]'
+                    }`}
+                    title={isSidebarCollapsed ? `${section.label} (${statusInfo.label})` : undefined}
+                  >
+                    {/* Left Icon + Title */}
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {isActive && !isSidebarCollapsed && (
+                        <span className="absolute left-0 top-2 bottom-2 w-1 bg-[#111827] rounded-r-full" />
+                      )}
+                      <span className="text-sm shrink-0">{section.icon}</span>
+
+                      {!isSidebarCollapsed && (
+                        <span className="text-xs truncate max-w-[110px]">{section.label}</span>
+                      )}
+                    </div>
+
+                    {/* Completion Status + Progress Dot + Reorder & Delete controls */}
+                    {!isSidebarCollapsed ? (
+                      <div className="flex items-center gap-1 shrink-0">
+                        {/* Status Icon Indicator (✓ / ⚠ / ○) */}
+                        <span
+                          className={`text-xs font-bold ${
+                            statusInfo.status === 'complete'
+                              ? 'text-emerald-600'
+                              : statusInfo.status === 'warning'
+                              ? 'text-amber-600'
+                              : 'text-zinc-400'
+                          }`}
+                        >
+                          {statusInfo.icon}
+                        </span>
+
+                        {/* Progress Dot */}
+                        <span className={`w-2 h-2 rounded-full ${statusInfo.dotColor}`} />
+
+                        {/* Hover Actions: Reorder Up/Down & Delete */}
+                        <div className="hidden group-hover/sec:flex items-center gap-0.5 ml-1 bg-white border border-[#E4E4E7] rounded-md px-0.5 shadow-2xs">
+                          <button
+                            onClick={(e) => moveSection(idx, 'up', e)}
+                            disabled={idx === 0}
+                            className="p-0.5 hover:text-[#18181B] text-[#71717A] disabled:opacity-20 text-[10px]"
+                            title="Move Up"
+                          >
+                            ▲
+                          </button>
+                          <button
+                            onClick={(e) => moveSection(idx, 'down', e)}
+                            disabled={idx === sections.length - 1}
+                            className="p-0.5 hover:text-[#18181B] text-[#71717A] disabled:opacity-20 text-[10px]"
+                            title="Move Down"
+                          >
+                            ▼
+                          </button>
+                          {section.canDelete && (
+                            <button
+                              onClick={(e) => handleDeleteSection(section.id, e)}
+                              className="p-0.5 hover:text-rose-600 text-[#71717A] text-[10px]"
+                              title="Delete Section"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      /* Collapsed Mode Progress Dot */
+                      <span className={`w-2 h-2 rounded-full ${statusInfo.dotColor} mx-auto`} />
+                    )}
+                  </div>
+                );
+              })}
             </nav>
           </div>
 
-          {/* Add Section Button */}
-          <div className="mt-auto p-4 border-t border-[#E4E4E7]">
-            <button className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[#71717A] hover:text-[#18181B] hover:bg-zinc-50 cursor-pointer">
-              <span>+</span>
-              <span>Add Section</span>
-            </button>
+          {/* Bottom Actions: Add Custom Section & AI Toggle */}
+          <div className="p-3 border-t border-[#E4E4E7] space-y-2 bg-[#FAFAF9]">
+            {!isSidebarCollapsed ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddSectionModal(true)}
+                  className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-[#18181B] bg-white border-[#E4E4E7]"
+                >
+                  <span>+ Add Custom Section</span>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAiPanel((p) => !p)}
+                  className="w-full flex items-center justify-between text-xs text-[#71717A]"
+                >
+                  <span className="flex items-center gap-1">✨ AI Tools</span>
+                  <span className="text-[10px] font-mono">⌘J</span>
+                </Button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowAddSectionModal(true)}
+                className="w-full p-2 rounded-lg bg-white border border-[#E4E4E7] hover:bg-zinc-100 flex items-center justify-center text-xs font-bold text-[#18181B]"
+                title="Add Section"
+              >
+                +
+              </button>
+            )}
           </div>
         </aside>
 
-        {/* ── Panel 2: Center Form ── */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-6 py-8">
-            <form onSubmit={handleSubmit(saveToSupabase)} className="space-y-8">
+        {/* ── Column 2: Center Editor ── */}
+        <main className="flex flex-col bg-white border-r border-[#E4E4E7] overflow-y-auto justify-between">
+          <div className="p-5 lg:p-6 space-y-6 flex-1">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E4E4E7]">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#71717A]">
+                  Section {sections.findIndex((s) => s.id === activeSection) + 1} of {sections.length}
+                </span>
+                <h2 className="text-sm font-bold text-[#18181B]">
+                  {sections.find((s) => s.id === activeSection)?.label || 'Section Editor'}
+                </h2>
+              </div>
+
+              <div className="lg:hidden flex items-center gap-1">
+                <select
+                  value={activeSection}
+                  onChange={(e) => setActiveSection(e.target.value as any)}
+                  className="px-2.5 py-1 rounded-lg border border-[#E4E4E7] text-xs font-semibold text-[#18181B] bg-white focus:outline-none"
+                >
+                  {sections.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.icon} {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit(saveToSupabase)} className="space-y-6">
               {activeSection === 'personal' && (
                 <PersonalInfoForm register={register} errors={errors} />
               )}
@@ -551,112 +976,131 @@ export default function ResumeEditorPage() {
               {activeSection === 'projects' && (
                 <ProjectsForm control={control} register={register} watch={watch} />
               )}
-
-              {/* Section Navigation */}
-              <div className="flex items-center justify-between pt-4 border-t border-[#E4E4E7]">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
-                    if (idx > 0) setActiveSection(SECTIONS[idx - 1].id);
-                  }}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 cursor-pointer"
-                >
-                  ← Previous
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const idx = SECTIONS.findIndex((s) => s.id === activeSection);
-                    if (idx < SECTIONS.length - 1) setActiveSection(SECTIONS[idx + 1].id);
-                  }}
-                  className="btn-micro px-4 py-2 rounded-xl text-xs font-semibold bg-[#111827] hover:bg-[#27272A] text-white cursor-pointer"
-                >
-                  Next →
-                </button>
-              </div>
+              {activeSection.startsWith('custom-') && (
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-bold text-[#18181B]">
+                      {sections.find((s) => s.id === activeSection)?.label}
+                    </h3>
+                    <p className="text-[11px] text-[#71717A]">Add custom details for this section.</p>
+                  </div>
+                  <textarea
+                    rows={6}
+                    placeholder="Enter custom content, certifications, or details..."
+                    className="w-full px-3 py-2 rounded-lg bg-[#FAFAF9] border border-[#E4E4E7] text-xs font-medium text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#111827] resize-none"
+                  />
+                </div>
+              )}
             </form>
           </div>
-        </div>
 
-        {/* ── Panel 3: Right - Resizable Live Preview (full height) ── */}
-        <div 
-          onMouseDown={startResizing} 
-          className="hidden lg:flex w-2 bg-[#E4E4E7] hover:bg-zinc-400 cursor-col-resize transition-all shrink-0 z-20 items-center justify-center group relative select-none"
-          title="Drag left/right with mouse to adjust preview width"
-        >
-          <div className="w-4 h-10 bg-white border border-[#E4E4E7] group-hover:border-zinc-400 rounded-full shadow-2xs flex items-center justify-center text-[#71717A] text-[10px] font-bold">
-            ⁞
-          </div>
-        </div>
-
-        <div 
-          style={{ width: `${previewWidth}px` }} 
-          className="hidden lg:flex shrink-0 flex-col border-l border-[#E4E4E7] bg-white overflow-hidden"
-        >
-          {/* Preview header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E4E7] shrink-0">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[#15803D]" />
-              <span className="text-xs font-semibold text-[#18181B]">Live Preview</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs text-[#71717A] bg-[#FAFAF9] px-2 py-1 rounded-lg border border-[#E4E4E7]">
-                <button 
-                  onClick={handleZoomOut}
-                  className="hover:text-[#18181B] px-1.5 font-bold cursor-pointer transition-colors"
-                  title="Zoom Out (-10%)"
-                >
-                  −
-                </button>
-                <button
-                  onClick={handleZoomReset}
-                  className="font-semibold px-1 text-[#18181B] hover:underline cursor-pointer"
-                  title="Reset Zoom to 100%"
-                >
-                  {zoomLevel}%
-                </button>
-                <button 
-                  onClick={handleZoomIn}
-                  className="hover:text-[#18181B] px-1.5 font-bold cursor-pointer transition-colors"
-                  title="Zoom In (+10%)"
-                >
-                  +
-                </button>
-              </div>
-              <button
-                onClick={() => setShowAiPanel((p) => !p)}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#FAFAF9] border border-[#E4E4E7] hover:border-[#111827] text-[11px] font-semibold text-[#71717A] hover:text-[#18181B] cursor-pointer"
-                title="AI Assistant (⌘J)"
-              >
-                ✨ AI
-              </button>
-            </div>
-          </div>
-
-          {/* Full Live Resume Preview with Mouse Scroll Zoom */}
-          <div 
-            className="flex-1 overflow-auto bg-zinc-100 p-6 flex justify-center items-start select-none cursor-grab active:cursor-grabbing"
-            onWheel={handleWheelZoom}
-          >
-            <div 
-              className="transition-transform duration-150 ease-out origin-top shadow-xl rounded-md bg-white"
-              style={{ transform: `scale(${zoomLevel / 100})` }}
+          <div className="sticky bottom-0 bg-white border-t border-[#E4E4E7] px-5 py-3 flex items-center justify-between z-10 shrink-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                const idx = sections.findIndex((s) => s.id === activeSection);
+                if (idx > 0) setActiveSection(sections[idx - 1].id as any);
+              }}
+              disabled={sections.findIndex((s) => s.id === activeSection) === 0}
             >
-              <ResumePreview data={formData} template={activeTemplate} />
-            </div>
+              ← Previous
+            </Button>
+
+            <span className="text-[11px] text-[#71717A] font-medium hidden sm:inline">
+              Autosaving on edit
+            </span>
+
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => {
+                const idx = sections.findIndex((s) => s.id === activeSection);
+                if (idx < sections.length - 1) setActiveSection(sections[idx + 1].id as any);
+              }}
+              disabled={sections.findIndex((s) => s.id === activeSection) === sections.length - 1}
+            >
+              Next →
+            </Button>
           </div>
-        </div>
+        </main>
+
+        
+        {/* ── Resizer ── */}
+        <div 
+          className="hidden lg:block w-1.5 cursor-col-resize bg-zinc-200 hover:bg-indigo-400 z-50 transition-colors"
+          onMouseDown={(e) => {
+            isDragging.current = true;
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+          }}
+        />
+
+        {/* ── Column 3: Right Preview ── */}
+        <PreviewPane data={formData} template={activeTemplate as any} onSectionClick={(sec) => setActiveSection(sec as any)} />
       </div>
 
-      {/* Floating AI Assistant toggle button (mobile/no panel) */}
-      <button
-        onClick={() => setShowAiPanel((p) => !p)}
-        className="fixed bottom-6 right-6 z-30 lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-semibold shadow-lg cursor-pointer"
-        title="AI Assistant (⌘J)"
-      >
-        ✨ AI Assistant
-      </button>
+      {/* Add Custom Section Dialog */}
+      {showAddSectionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+          <div className="w-full max-w-sm bg-white border border-[#E4E4E7] rounded-2xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-[#18181B]">Add Custom Section</h3>
+              <button onClick={() => setShowAddSectionModal(false)} className="text-xs text-[#71717A] hover:text-[#18181B]">✕</button>
+            </div>
+
+            {/* Quick Suggestions */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold text-[#71717A]">Quick Presets</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { title: 'Certifications', icon: '📜' },
+                  { title: 'Languages', icon: '🌐' },
+                  { title: 'Awards & Honors', icon: '🏆' },
+                  { title: 'Volunteer Work', icon: '🤝' },
+                ].map((preset) => (
+                  <button
+                    key={preset.title}
+                    onClick={() => handleAddSection(preset.title, preset.icon)}
+                    className="px-2.5 py-1 rounded-lg border border-[#E4E4E7] bg-[#FAFAF9] hover:bg-zinc-100 text-xs font-semibold text-[#18181B] cursor-pointer"
+                  >
+                    {preset.icon} {preset.title}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Name Input */}
+            <div className="space-y-1.5 pt-2">
+              <p className="text-[11px] font-semibold text-[#71717A]">Or Custom Section Title</p>
+              <input
+                type="text"
+                value={customSectionInput}
+                onChange={(e) => setCustomSectionInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddSection(customSectionInput, '✨');
+                }}
+                placeholder="e.g. Publications, Speaking..."
+                className="w-full px-3 py-2 rounded-xl border border-[#E4E4E7] text-xs text-[#18181B] focus:outline-none focus:border-[#111827]"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowAddSectionModal(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => handleAddSection(customSectionInput, '✨')}
+                disabled={!customSectionInput.trim()}
+              >
+                Add Section
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CoverLetterModal
         isOpen={isCoverLetterModalOpen}
@@ -666,8 +1110,7 @@ export default function ResumeEditorPage() {
         defaultSkills={(formData.skills || []).map((s) => s.name).filter(Boolean) as string[]}
       />
 
-      {/* ─── AI Assistant Panel (fixed overlay) ─── */}
-      <AIAssistantPanel
+      <AIAssistantDrawer
         isOpen={showAiPanel}
         onClose={() => setShowAiPanel(false)}
         targetRole={formData.personal?.title || 'Professional'}
@@ -679,6 +1122,17 @@ export default function ResumeEditorPage() {
           setActiveSection('summary');
         }}
         onCoverLetterOpen={() => setIsCoverLetterModalOpen(true)}
+      />
+
+      <ATSDrawer
+        isOpen={showAtsDrawer}
+        onClose={() => setShowAtsDrawer(false)}
+        atsDetails={atsDetails}
+        formData={formData}
+        onImproveResume={() => setShowAiPanel(true)}
+        onRunCheck={() => {
+          // Re-trigger calculation state
+        }}
       />
     </div>
   );

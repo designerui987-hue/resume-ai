@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   FileText, Clock, MoreVertical, Edit3, Copy, Trash2,
   Download, ExternalLink, Type, AlertTriangle, X, Check,
@@ -208,6 +209,7 @@ export function ResumeCard({
   onDuplicate,
   onRename,
 }: ResumeCardProps) {
+  const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
@@ -281,13 +283,17 @@ export function ResumeCard({
               </div>
             </div>
 
-            <Link
-              href={`/editor/${resume.id}`}
-              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold transition-all shadow-xs block text-center"
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/editor/${resume.id}`);
+              }}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
             >
               <Sparkles className="w-3.5 h-3.5" />
               Improve Resume
-            </Link>
+            </button>
           </div>
         )}
       </div>
@@ -378,7 +384,7 @@ export function ResumeCard({
   if (viewMode === 'grid') {
     return (
       <>
-        <div className="rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs relative group hover:border-[#111827] transition-all flex flex-col justify-between overflow-hidden">
+        <div className={`rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs relative group hover:border-[#111827] transition-all flex flex-col justify-between ${showMenu ? 'overflow-visible z-50' : 'overflow-hidden z-10'}`}>
           <Link href={`/editor/${resume.id}`} className="p-5 pb-3 space-y-4 block flex-1">
             {/* Rich Document Preview Thumbnail */}
             <div className="w-full h-44 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] flex flex-col justify-between p-4 overflow-hidden relative shadow-2xs group-hover:bg-zinc-100/60 transition-colors">
@@ -463,7 +469,7 @@ export function ResumeCard({
   /* ─── List view ─── */
   return (
     <>
-      <div className="rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs group hover:border-[#111827] transition-all relative">
+      <div className={`rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs group hover:border-[#111827] transition-all relative ${showMenu ? 'z-50' : 'z-10'}`}>
         {/* Clickable area → opens editor */}
         <Link
           href={`/editor/${resume.id}`}

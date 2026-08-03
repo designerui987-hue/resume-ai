@@ -1,110 +1,227 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Control, useFieldArray, UseFormRegister } from 'react-hook-form';
+import React, { useState, useRef, useEffect } from 'react';
+import { Control, useFieldArray, UseFormRegister, useWatch } from 'react-hook-form';
 import { FullResumeFormValues } from '@/types/resume';
+import { Button } from '@/components/ui/button';
+import { X, Search } from 'lucide-react';
 
 interface Props {
   control: Control<FullResumeFormValues>;
   register: UseFormRegister<FullResumeFormValues>;
 }
 
-const inputCls =
-  'w-full px-3 py-2 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] text-sm text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#111827] transition-colors';
+const SKILL_DICTIONARY: Record<string, string[]> = {
+  Programming: ['JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'C#', 'Go', 'Rust', 'Ruby', 'PHP', 'HTML', 'CSS', 'Swift', 'Kotlin'],
+  Frameworks: ['React', 'Next.js', 'Vue', 'Angular', 'Svelte', 'Node.js', 'Express', 'Django', 'Spring Boot', 'Tailwind CSS', 'React Native', 'Flutter'],
+  Cloud: ['AWS', 'Google Cloud', 'Azure', 'Docker', 'Kubernetes', 'Terraform', 'Vercel', 'Netlify', 'CI/CD', 'GitHub Actions'],
+  Databases: ['PostgreSQL', 'MySQL', 'MongoDB', 'Redis', 'Elasticsearch', 'DynamoDB', 'Supabase', 'Firebase', 'GraphQL', 'Prisma'],
+  'Soft Skills': ['Leadership', 'Communication', 'Teamwork', 'Problem Solving', 'Product Strategy', 'Agile', 'Mentoring', 'Public Speaking']
+};
 
-const selectCls =
-  'w-full px-3 py-2 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] text-sm text-[#18181B] focus:outline-none focus:border-[#111827] transition-colors';
+const ALL_SKILLS = Object.entries(SKILL_DICTIONARY).flatMap(([category, skills]) =>
+  skills.map((name) => ({ name, category }))
+);
+
+const inputCls =
+  'w-full px-3 py-2 pl-9 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] text-xs font-medium text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:ring-2 focus:ring-[#111827] focus:border-transparent transition-all shadow-2xs';
 
 export default function SkillsForm({ control, register }: Props) {
-  const { fields, append, remove } = useFieldArray({ control, name: 'skills' });
-  const [newSkill, setNewSkill] = useState('');
+  const { append, remove } = useFieldArray({ control, name: 'skills' });
+  const watchedSkills = useWatch({ control, name: 'skills' }) || [];
+  
+  const [inputValue, setInputValue] = useState('');
+  const [suggestions, setSuggestions] = useState<{ name: string; category: string }[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const handleAddSkill = () => {
-    if (newSkill.trim()) {
-      append({ name: newSkill.trim(), category: 'Technical', proficiencyLevel: 'Intermediate' });
-      setNewSkill('');
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        setIsFocused(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Update suggestions when input changes
+  useEffect(() => {
+    if (!inputValue.trim()) {
+      setSuggestions([]);
+      setHighlightedIndex(-1);
+      return;
+    }
+    
+    const query = inputValue.toLowerCase();
+    const filtered = ALL_SKILLS.filter(s => s.name.toLowerCase().includes(query))
+      // Don't show skills already added
+      .filter(s => !watchedSkills.some(ws => ws.name?.toLowerCase() === s.name.toLowerCase()))
+      .slice(0, 6);
+      
+    setSuggestions(filtered);
+    setHighlightedIndex(-1);
+  }, [inputValue, watchedSkills]);
+
+  const handleAddSkill = (name: string, category: string) => {
+    if (!name.trim()) return;
+    if (watchedSkills.some(s => s.name?.toLowerCase() === name.toLowerCase())) {
+      setInputValue('');
+      return;
+    }
+    
+    append({ name: name.trim(), category, proficiencyLevel: 'Intermediate' });
+    setInputValue('');
+    setSuggestions([]);
+    setIsFocused(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev < suggestions.length - 1 ? prev + 1 : prev));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(prev => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedIndex >= 0 && highlightedIndex < suggestions.length) {
+        // Add highlighted suggestion
+        handleAddSkill(suggestions[highlightedIndex].name, suggestions[highlightedIndex].category);
+      } else if (inputValue.trim()) {
+        // Add custom skill as 'Other'
+        handleAddSkill(inputValue, 'Other');
+      }
+    } else if (e.key === 'Escape') {
+      setIsFocused(false);
     }
   };
 
+  // Group skills for display
+  const skillsWithIndex = watchedSkills.map((s, index) => ({ ...s, originalIndex: index }));
+  const groupedSkills = skillsWithIndex.reduce((acc, skill) => {
+    const cat = skill.category || 'Other';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(skill);
+    return acc;
+  }, {} as Record<string, typeof skillsWithIndex>);
+  
+  const categoryOrder = ['Programming', 'Frameworks', 'Cloud', 'Databases', 'Soft Skills', 'Other', 'General', 'Technical'];
+  const activeCategories = Object.keys(groupedSkills).sort((a, b) => {
+    const idxA = categoryOrder.indexOf(a);
+    const idxB = categoryOrder.indexOf(b);
+    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+    if (idxA === -1) return 1;
+    if (idxB === -1) return -1;
+    return idxA - idxB;
+  });
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h3 className="text-base font-bold text-[#18181B] mb-1">Skills</h3>
-        <p className="text-xs text-[#71717A]">Add your technical and professional skills.</p>
+        <h3 className="text-xs font-bold text-[#18181B]">Skills & Expertise</h3>
+        <p className="text-[11px] text-[#71717A]">Add your core technical skills, frameworks, and soft competencies.</p>
       </div>
 
-      {/* Quick Add Input */}
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={newSkill}
-          onChange={(e) => setNewSkill(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSkill())}
-          placeholder="Type a skill and press Enter..."
-          className={inputCls}
-        />
-        <button
-          type="button"
-          onClick={handleAddSkill}
-          className="px-4 py-2 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-semibold whitespace-nowrap cursor-pointer"
-        >
-          + Add
-        </button>
-      </div>
-
-      {fields.length === 0 ? (
-        <div className="py-8 text-center rounded-2xl border-2 border-dashed border-[#E4E4E7]">
-          <p className="text-xs text-[#71717A]">No skills added yet. Type a skill above and press Enter.</p>
-        </div>
-      ) : (
-        <div className="space-y-2.5">
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex items-center gap-2.5 p-3 rounded-xl bg-white border border-[#E4E4E7]">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  {...register(`skills.${index}.name`)}
-                  placeholder="Skill name"
-                  className={inputCls}
-                />
-              </div>
-              <div className="w-32 shrink-0">
-                <select {...register(`skills.${index}.category`)} className={selectCls}>
-                  <option value="Technical">Technical</option>
-                  <option value="Frameworks">Frameworks</option>
-                  <option value="Languages">Languages</option>
-                  <option value="Tools">Tools</option>
-                  <option value="Soft Skills">Soft Skills</option>
-                  <option value="Design">Design</option>
-                </select>
-              </div>
-              <div className="w-32 shrink-0">
-                <select {...register(`skills.${index}.proficiencyLevel`)} className={selectCls}>
-                  <option value="Beginner">Beginner</option>
-                  <option value="Intermediate">Intermediate</option>
-                  <option value="Advanced">Advanced</option>
-                  <option value="Expert">Expert</option>
-                </select>
-              </div>
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                className="p-1.5 rounded-lg text-[#71717A] hover:text-[#B91C1C] hover:bg-red-50 transition-colors shrink-0"
-              >
-                ✕
-              </button>
+      <div className="p-4 sm:p-5 rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs space-y-6">
+        
+        {/* Autocomplete Input */}
+        <div className="relative" ref={wrapperRef}>
+          <label className="block text-[11px] font-semibold text-[#71717A] mb-1.5">
+            Search or add a skill
+          </label>
+          <div className="relative">
+            <Search className="w-4 h-4 text-[#A1A1AA] absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={inputValue}
+              onChange={(e) => {
+                setInputValue(e.target.value);
+                setIsFocused(true);
+              }}
+              onFocus={() => setIsFocused(true)}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g. React, TypeScript, Product Strategy..."
+              className={inputCls}
+            />
+          </div>
+          
+          {/* Dropdown Suggestions */}
+          {isFocused && inputValue.trim() && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-[#E4E4E7] rounded-xl shadow-lg overflow-hidden py-1">
+              {suggestions.length > 0 ? (
+                suggestions.map((suggestion, idx) => (
+                  <div
+                    key={suggestion.name}
+                    className={`px-3 py-2 cursor-pointer flex items-center justify-between transition-colors ${
+                      highlightedIndex === idx ? 'bg-zinc-100' : 'hover:bg-zinc-50'
+                    }`}
+                    onClick={() => handleAddSkill(suggestion.name, suggestion.category)}
+                    onMouseEnter={() => setHighlightedIndex(idx)}
+                  >
+                    <span className="text-xs font-medium text-[#18181B]">{suggestion.name}</span>
+                    <span className="text-[10px] font-medium text-[#A1A1AA] bg-[#FAFAF9] px-1.5 py-0.5 rounded border border-[#E4E4E7]">
+                      {suggestion.category}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <div 
+                  className="px-3 py-2 cursor-pointer flex items-center justify-between hover:bg-zinc-50 transition-colors"
+                  onClick={() => handleAddSkill(inputValue, 'Other')}
+                >
+                  <span className="text-xs font-medium text-[#18181B]">Add &quot;{inputValue}&quot;</span>
+                  <span className="text-[10px] font-medium text-[#A1A1AA] bg-[#FAFAF9] px-1.5 py-0.5 rounded border border-[#E4E4E7]">
+                    Other
+                  </span>
+                </div>
+              )}
             </div>
-          ))}
+          )}
         </div>
-      )}
 
-      <button
-        type="button"
-        onClick={() => append({ name: '', category: 'Technical', proficiencyLevel: 'Intermediate' })}
-        className="w-full py-2.5 rounded-xl border-2 border-dashed border-[#E4E4E7] hover:border-[#111827] text-xs font-semibold text-[#71717A] hover:text-[#18181B] transition-colors cursor-pointer"
-      >
-        + Add Skill Row
-      </button>
+        {/* Grouped Skills Display */}
+        {watchedSkills.length === 0 ? (
+          <div className="py-8 text-center rounded-xl border-2 border-dashed border-[#E4E4E7] bg-[#FAFAF9]">
+            <p className="text-xs text-[#71717A]">No skills added yet. Search above to add.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {activeCategories.map(category => (
+              <div key={category} className="space-y-2">
+                <h4 className="text-[10px] font-bold text-[#71717A] uppercase tracking-wider">{category}</h4>
+                <div className="flex flex-wrap gap-2">
+                  {groupedSkills[category].map(skill => (
+                    <div
+                      key={skill.id || skill.originalIndex}
+                      className="inline-flex items-center pl-2.5 pr-1 py-1 rounded-lg bg-[#FAFAF9] border border-[#E4E4E7] shadow-2xs group hover:border-[#111827] transition-all"
+                    >
+                      <span className="text-xs font-bold text-[#18181B] mr-2 truncate max-w-[150px]">
+                        {skill.name}
+                      </span>
+                      {/* Hidden inputs to keep react-hook-form happy since we don't allow editing name here anymore */}
+                      <input type="hidden" {...register(`skills.${skill.originalIndex}.name`)} value={skill.name || ''} />
+                      <input type="hidden" {...register(`skills.${skill.originalIndex}.category`)} value={skill.category || ''} />
+                      <input type="hidden" {...register(`skills.${skill.originalIndex}.proficiencyLevel`)} value={skill.proficiencyLevel || 'Intermediate'} />
+                      
+                      <button
+                        type="button"
+                        onClick={() => remove(skill.originalIndex)}
+                        className="text-[#A1A1AA] hover:text-rose-600 hover:bg-rose-50 rounded-md p-0.5 transition-colors"
+                        title="Remove Skill"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
