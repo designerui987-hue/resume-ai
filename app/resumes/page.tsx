@@ -653,7 +653,7 @@ export default function ResumesPage() {
 
             {/* Right panel */}
             <div className="w-full lg:w-[320px] shrink-0 space-y-5">
-              <ResumeInsights />
+              <ResumeInsights resumes={resumes} loading={loading} />
               <RecentActivity />
               <TipsCard />
             </div>
