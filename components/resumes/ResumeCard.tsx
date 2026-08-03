@@ -3,7 +3,9 @@ import Link from 'next/link';
 import {
   FileText, Clock, MoreVertical, Edit3, Copy, Trash2,
   Download, ExternalLink, Type, AlertTriangle, X, Check,
+  Sparkles, Calendar,
 } from 'lucide-react';
+import { calculateDynamicATSScore } from '@/lib/ats';
 
 export interface ResumeItem {
   id: string;
@@ -146,26 +148,74 @@ export function ResumeCard({
     return () => document.removeEventListener('mousedown', handler);
   }, [showMenu]);
 
-  const scoreColor =
-    resume.atsScore >= 85 ? '#15803D' : resume.atsScore >= 70 ? '#B45309' : '#B91C1C';
+  const atsDetails = calculateDynamicATSScore(resume);
 
-  const ATSGauge = ({ size = 10 }: { size?: number }) => (
-    <div className={`relative w-${size} h-${size} flex items-center justify-center`}>
-      <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-        <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E4E4E7" strokeWidth="3" />
-        <circle
-          cx="18" cy="18" r="15.5" fill="none"
-          stroke={scoreColor} strokeWidth="3"
-          strokeDasharray="97"
-          strokeDashoffset={97 - (resume.atsScore / 100) * 97}
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="absolute text-xs font-bold text-[#18181B]" style={{ fontSize: size < 10 ? 9 : 12 }}>
-        {resume.atsScore}
-      </span>
-    </div>
-  );
+  const ATSGauge = ({ size = 10 }: { size?: number }) => {
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    return (
+      <div
+        className="relative shrink-0"
+        onMouseEnter={() => setShowTooltip(true)}
+        onMouseLeave={() => setShowTooltip(false)}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className={`relative w-${size} h-${size} flex items-center justify-center cursor-pointer transition-transform hover:scale-105`}>
+          <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+            <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E4E4E7" strokeWidth="3" />
+            <circle
+              cx="18" cy="18" r="15.5" fill="none"
+              stroke={atsDetails.colorHex} strokeWidth="3"
+              strokeDasharray="97"
+              strokeDashoffset={97 - (atsDetails.overallScore / 100) * 97}
+              strokeLinecap="round"
+              className="transition-all duration-500"
+            />
+          </svg>
+          <span className="absolute text-xs font-bold text-[#18181B]" style={{ fontSize: size < 10 ? 9 : 12 }}>
+            {atsDetails.overallScore}
+          </span>
+        </div>
+
+        {showTooltip && (
+          <div className="absolute right-0 bottom-full mb-2.5 w-64 p-4 rounded-2xl bg-white border border-[#E4E4E7] shadow-2xl z-50 space-y-3 pointer-events-auto animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#18181B]">ATS Score</span>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${atsDetails.badgeBg} ${atsDetails.badgeText} ${atsDetails.borderClass}`}>
+                  {atsDetails.colorCategory}
+                </span>
+              </div>
+              <span className="text-sm font-extrabold text-[#18181B]">{atsDetails.overallScore}/100</span>
+            </div>
+
+            <div className="space-y-1.5 text-[11px] text-[#71717A] border-t border-[#E4E4E7] pt-2.5">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Clock className="w-3 h-3 text-[#71717A]" /> Last scanned
+                </span>
+                <span className="font-semibold text-[#18181B]">{resume.updatedAgo || 'Just now'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Calendar className="w-3 h-3 text-[#71717A]" /> Scan date
+                </span>
+                <span className="font-semibold text-[#18181B]">{resume.modifiedDate || 'Today'}</span>
+              </div>
+            </div>
+
+            <Link
+              href={`/editor/${resume.id}`}
+              className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold transition-all shadow-xs block text-center"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Improve Resume
+            </Link>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   /* ─── Shared action menu JSX ─── */
   const ActionMenu = () => (
@@ -281,15 +331,8 @@ export function ResumeCard({
                 <p className="text-[11px] text-[#71717A]">Updated {resume.updatedAgo}</p>
               </div>
 
-              {/* ATS Gauge */}
-              <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                  <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E4E4E7" strokeWidth="3" />
-                  <circle cx="18" cy="18" r="15.5" fill="none" stroke={scoreColor} strokeWidth="3"
-                    strokeDasharray="97" strokeDashoffset={97 - (resume.atsScore / 100) * 97} strokeLinecap="round" />
-                </svg>
-                <span className="absolute text-xs font-bold text-[#18181B]">{resume.atsScore}</span>
-              </div>
+              {/* ATS Gauge with Tooltip */}
+              <ATSGauge size={10} />
             </div>
           </Link>
 
@@ -369,16 +412,9 @@ export function ResumeCard({
             </div>
           </div>
 
-          {/* ATS Score */}
+          {/* ATS Score with Tooltip */}
           <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-            <div className="relative w-10 h-10 flex items-center justify-center">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                <circle cx="18" cy="18" r="15.5" fill="none" stroke="#E4E4E7" strokeWidth="3" />
-                <circle cx="18" cy="18" r="15.5" fill="none" stroke={scoreColor} strokeWidth="3"
-                  strokeDasharray="97" strokeDashoffset={97 - (resume.atsScore / 100) * 97} strokeLinecap="round" />
-              </svg>
-              <span className="absolute text-xs font-bold text-[#18181B]">{resume.atsScore}</span>
-            </div>
+            <ATSGauge size={10} />
             <span className="text-[10px] font-semibold text-[#71717A] hidden sm:inline">ATS Score</span>
           </div>
         </Link>
