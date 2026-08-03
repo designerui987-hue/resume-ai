@@ -397,14 +397,23 @@ export default function ResumesPage() {
   const handleDelete = async (id: string) => {
     const target = resumes.find(r => r.id === id);
     if (target) logActivity('deleted', target.title);
-    // Optimistic remove (ResumeCard shows its own confirm dialog before calling this)
+
+    // Soft delete first: update status to 'Archived' and set deleted_at
     setResumes(prev => prev.filter(r => r.id !== id));
+
     if (userId && userId !== 'demo-user-id') {
-      const { error } = await supabase.from('resumes').delete().eq('id', id);
+      const { error } = await supabase
+        .from('resumes')
+        .update({
+          status: 'Archived',
+          deleted_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
       if (error) {
-        console.error('[Resumes] delete error:', error.message);
+        console.error('[Resumes] soft delete error:', error.message);
         setErrorMsg('Failed to delete resume.');
-        if (userId) fetchResumes(userId); // restore
+        if (userId) fetchResumes(userId);
       }
     }
   };
@@ -413,35 +422,72 @@ export default function ResumesPage() {
     const target = resumes.find(r => r.id === id);
     if (!target) return;
 
+    const newId = 'dup-' + Date.now();
     const newTitle = `Copy of ${target.title}`;
+
+    if (userId && userId !== 'demo-user-id') {
+      try {
+        // 1. Duplicate master resume row
+        const { data: newResume, error: rErr } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: userId,
+            title: newTitle,
+            target_role: target.targetRole || null,
+            status: 'Draft',
+            completion_score: target.atsScore,
+          })
+          .select('id')
+          .single();
+
+        if (rErr) throw rErr;
+        const targetId = newResume?.id || newId;
+
+        // 2. Duplicate child records (Experience, Education, Projects, Skills, Certificates)
+        const [{ data: exp }, { data: edu }, { data: proj }, { data: sk }, { data: cert }] = await Promise.all([
+          supabase.from('experiences').select('*').eq('resume_id', id),
+          supabase.from('education').select('*').eq('resume_id', id),
+          supabase.from('projects').select('*').eq('resume_id', id),
+          supabase.from('skills').select('*').eq('resume_id', id),
+          supabase.from('certificates').select('*').eq('resume_id', id),
+        ]);
+
+        if (exp && exp.length > 0) {
+          await supabase.from('experiences').insert(exp.map(e => ({ ...e, id: undefined, resume_id: targetId })));
+        }
+        if (edu && edu.length > 0) {
+          await supabase.from('education').insert(edu.map(e => ({ ...e, id: undefined, resume_id: targetId })));
+        }
+        if (proj && proj.length > 0) {
+          await supabase.from('projects').insert(proj.map(p => ({ ...p, id: undefined, resume_id: targetId })));
+        }
+        if (sk && sk.length > 0) {
+          await supabase.from('skills').insert(sk.map(s => ({ ...s, id: undefined, resume_id: targetId })));
+        }
+        if (cert && cert.length > 0) {
+          await supabase.from('certificates').insert(cert.map(c => ({ ...c, id: undefined, resume_id: targetId })));
+        }
+
+        logActivity('duplicated', newTitle);
+        router.push(`/editor/${targetId}`);
+        return;
+      } catch (err: any) {
+        console.error('[Resumes] duplicate error:', err?.message ?? err);
+      }
+    }
+
+    // Demo mode fallback
     const newItem: ResumeItem = {
       ...target,
-      id: 'dup-' + Date.now(),
+      id: newId,
       title: newTitle,
       isDefault: false,
       updatedAgo: 'Just now',
       modifiedDate: 'Today',
     };
-    // Optimistic add
     setResumes(prev => [newItem, ...prev]);
     logActivity('duplicated', newTitle);
-    setSuccessMsg(`"${newTitle}" created.`);
-    setTimeout(() => setSuccessMsg(null), 3000);
-
-    if (userId && userId !== 'demo-user-id') {
-      try {
-        await supabase.from('resumes').insert({
-          user_id: userId,
-          title: newTitle,
-          target_role: target.targetRole || null,
-          status: 'Draft',
-          completion_score: target.atsScore,
-        });
-        fetchResumes(userId);
-      } catch (err: any) {
-        console.error('[Resumes] duplicate error:', err?.message ?? err);
-      }
-    }
+    router.push(`/editor/${newId}`);
   };
 
   const handleRename = async (id: string, newTitle: string) => {

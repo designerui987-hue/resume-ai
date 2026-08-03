@@ -51,10 +51,9 @@ function DeleteDialog({
             <AlertTriangle className="w-4 h-4 text-rose-600" />
           </div>
           <div>
-            <p className="text-sm font-bold text-[#18181B]">Delete resume?</p>
+            <p className="text-sm font-bold text-[#18181B]">Are you sure?</p>
             <p className="text-xs text-[#71717A] mt-1 leading-relaxed">
-              <span className="font-semibold text-[#18181B]">"{title}"</span> will be permanently
-              deleted. This action cannot be undone.
+              <span className="font-semibold text-[#18181B]">"{title}"</span> will be soft deleted. This action cannot be undone.
             </p>
           </div>
         </div>
@@ -74,6 +73,81 @@ function DeleteDialog({
         </div>
       </div>
     </div>
+  );
+}
+
+/* ─── Editable Title Component for Inline Rename ─── */
+function EditableTitle({
+  title,
+  onSave,
+}: {
+  title: string;
+  onSave: (newTitle: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setValue(title);
+  }, [title]);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  if (!editing) {
+    return (
+      <h3
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setEditing(true);
+        }}
+        className="text-sm font-bold text-[#18181B] truncate hover:text-[#111827] cursor-pointer group/title flex items-center gap-1.5 min-w-0"
+        title="Click to inline rename"
+      >
+        <span className="truncate">{title}</span>
+        <Edit3 className="w-3 h-3 text-[#71717A] opacity-0 group-hover/title:opacity-100 transition-opacity shrink-0" />
+      </h3>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.stopPropagation();
+          if (value.trim() && value.trim() !== title) {
+            onSave(value.trim());
+          }
+          setEditing(false);
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          setValue(title);
+          setEditing(false);
+        }
+      }}
+      onBlur={() => {
+        if (value.trim() && value.trim() !== title) {
+          onSave(value.trim());
+        }
+        setEditing(false);
+      }}
+      className="px-2 py-0.5 text-xs font-bold text-[#18181B] bg-white border border-[#111827] rounded-md focus:outline-none shadow-xs w-full max-w-[180px]"
+    />
   );
 }
 
@@ -331,9 +405,9 @@ export function ResumeCard({
 
             {/* Resume Info Header */}
             <div className="flex justify-between items-start gap-2 pt-1">
-              <div className="min-w-0 space-y-1">
+              <div className="min-w-0 space-y-1 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <h3 className="text-sm font-bold text-[#18181B] truncate">{resume.title}</h3>
+                  <EditableTitle title={resume.title} onSave={t => onRename(resume.id, t)} />
                   {resume.status && (
                     <span className={`px-1.5 py-0.5 rounded-md font-semibold text-[9px] shrink-0 ${
                       resume.status === 'Completed' || resume.status === 'Published'
@@ -402,7 +476,7 @@ export function ResumeCard({
 
             <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-[#18181B] truncate">{resume.title}</h3>
+                <EditableTitle title={resume.title} onSave={t => onRename(resume.id, t)} />
                 {resume.isDefault && (
                   <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-purple-700 font-semibold text-[10px] shrink-0">
                     Default
