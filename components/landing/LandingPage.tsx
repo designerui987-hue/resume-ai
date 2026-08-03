@@ -38,34 +38,35 @@ export default function MinimalLandingPage() {
     <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] font-sans selection:bg-zinc-200 selection:text-zinc-900 antialiased">
       {/* 1. Header Navigation */}
       <header className="sticky top-0 z-50 bg-[#FAFAF9]/90 backdrop-blur-md border-b border-[#E4E4E7]">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 h-[72px] flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
             <div className="w-8 h-8 rounded-lg bg-[#111827] text-white flex items-center justify-center font-bold text-sm">
               📄
             </div>
-            <span className="font-bold text-base tracking-tight text-[#18181B]">
+            <span className="font-bold text-[17px] tracking-tight text-[#18181B]">
               ResumeAI
             </span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-[#71717A]">
+          <nav className="hidden md:flex items-center gap-8 text-[15px] font-medium text-[#71717A] absolute left-1/2 -translate-x-1/2">
             <a href="#features" className="hover:text-[#18181B] transition-colors">Features</a>
-            <a href="#preview" className="hover:text-[#18181B] transition-colors">Templates</a>
+            <a href="#templates" className="hover:text-[#18181B] transition-colors">Templates</a>
             <a href="#pricing" className="hover:text-[#18181B] transition-colors">Pricing</a>
-            <a href="#testimonials" className="hover:text-[#18181B] transition-colors">Testimonials</a>
-            <a href="#faq" className="hover:text-[#18181B] transition-colors">FAQ</a>
+            <div className="flex items-center gap-1 cursor-pointer hover:text-[#18181B] transition-colors">
+              Resources <span className="text-[10px]">▼</span>
+            </div>
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-5">
             <Link
               href="/login"
-              className="text-sm font-medium text-[#71717A] hover:text-[#18181B] px-3 py-1.5 transition-colors"
+              className="text-[15px] font-medium text-[#18181B] hover:text-[#71717A] transition-colors"
             >
-              Sign In
+              Sign in
             </Link>
             <Link
               href="/login"
-              className="btn-micro bg-[#111827] hover:bg-[#27272A] text-white text-sm font-medium px-4 py-2 rounded-xl shadow-xs transition-all"
+              className="btn-micro bg-[#111827] hover:bg-[#27272A] text-white text-[15px] font-medium px-5 py-2.5 rounded-xl shadow-xs transition-all"
             >
               Get Started Free
             </Link>
@@ -73,33 +74,33 @@ export default function MinimalLandingPage() {
         </div>
       </header>
 
-      <main className="max-w-6xl mx-auto px-6">
+      <main className="max-w-7xl mx-auto px-6">
         {/* 2. Hero Section */}
-        <section className="pt-20 pb-16 text-center animate-fade-in">
+        <section className="pt-24 pb-20 text-center animate-fade-in">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#E4E4E7] text-xs font-medium text-[#71717A] mb-8 shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-50/50 border border-amber-100 text-[13px] font-semibold text-amber-900 mb-8 shadow-xs">
             <span className="text-amber-500">✨</span>
             <span>AI-Powered Resume Builder</span>
           </div>
 
-          <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-bold text-[#18181B] tracking-tight leading-[1.1] max-w-4xl mx-auto mb-6">
+          <h1 className="text-5xl sm:text-[64px] font-bold text-[#18181B] tracking-tight leading-[1.05] max-w-[800px] mx-auto mb-6">
             Build a Job-Winning <br /> Resume in Minutes
           </h1>
 
-          <p className="text-base sm:text-lg text-[#71717A] max-w-2xl mx-auto leading-relaxed mb-10">
+          <p className="text-[19px] text-[#71717A] max-w-[600px] mx-auto leading-[1.5] mb-10">
             Create ATS-friendly resumes, generate cover letters, and get hired faster with AI.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-16">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto mb-20">
             <Link
               href="/login"
-              className="btn-micro w-full sm:w-auto bg-[#111827] hover:bg-[#27272A] text-white text-sm font-semibold px-6 py-3.5 rounded-xl shadow-xs text-center"
+              className="btn-micro w-full sm:w-auto bg-[#111827] hover:bg-[#27272A] text-white text-[15px] font-semibold px-8 py-3.5 rounded-xl shadow-xs text-center"
             >
               Create My Resume
             </Link>
             <a
-              href="#preview"
-              className="btn-micro w-full sm:w-auto bg-white hover:bg-zinc-50 text-[#18181B] text-sm font-semibold px-6 py-3.5 rounded-xl border border-[#E4E4E7] shadow-2xs text-center"
+              href="#templates"
+              className="btn-micro w-full sm:w-auto bg-white hover:bg-zinc-50 text-[#18181B] text-[15px] font-semibold px-8 py-3.5 rounded-xl border border-[#E4E4E7] shadow-2xs text-center"
             >
               See Templates
             </a>
@@ -185,17 +186,21 @@ export default function MinimalLandingPage() {
         </section>
 
         {/* Logo Cloud Section */}
-        <section className="py-12 border-b border-[#E4E4E7]">
-          <p className="text-center text-xs font-semibold text-[#71717A] uppercase tracking-wider mb-8">
+        <section className="py-14 border-b border-[#E4E4E7]">
+          <p className="text-center text-[13px] font-semibold text-[#71717A] mb-8">
             Trusted by job seekers at
           </p>
-          <div className="flex flex-wrap items-center justify-center gap-10 opacity-70 font-semibold text-lg text-[#18181B]">
-            <span>Google</span>
-            <span>Microsoft</span>
-            <span>Amazon</span>
-            <span>Meta</span>
-            <span>Adobe</span>
-            <span>Notion</span>
+          <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-8 opacity-70">
+            {/* Real SVG logos should replace these if available, but for now we match typography sizing */}
+            <span className="font-bold text-2xl text-[#18181B]">Google</span>
+            <span className="font-semibold text-2xl text-[#18181B] flex items-center gap-2">
+              <span className="grid grid-cols-2 gap-0.5"><span className="w-2.5 h-2.5 bg-[#18181B]"></span><span className="w-2.5 h-2.5 bg-[#18181B]"></span><span className="w-2.5 h-2.5 bg-[#18181B]"></span><span className="w-2.5 h-2.5 bg-[#18181B]"></span></span>
+              Microsoft
+            </span>
+            <span className="font-bold text-2xl text-[#18181B]">amazon</span>
+            <span className="font-bold text-2xl text-[#18181B] flex items-center gap-1.5"><span className="text-3xl">∞</span> Meta</span>
+            <span className="font-bold text-2xl text-[#18181B] text-red-600 flex items-center gap-1.5"><span className="bg-red-600 text-white w-6 h-6 flex items-center justify-center rounded-sm text-sm">A</span> Adobe</span>
+            <span className="font-semibold text-2xl text-[#18181B] flex items-center gap-1.5"><span className="border border-[#18181B] px-1 text-sm rounded-sm">N</span> Notion</span>
           </div>
         </section>
 
@@ -441,41 +446,65 @@ export default function MinimalLandingPage() {
         </section>
 
         {/* 7. Footer */}
-        <footer className="py-16 text-xs text-[#71717A]">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
-            <div className="col-span-2 space-y-3">
-              <div className="flex items-center gap-2 font-bold text-sm text-[#18181B]">
+        <footer className="py-16 text-[13px] text-[#71717A]">
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-8 mb-12">
+            <div className="col-span-2 space-y-4">
+              <div className="flex items-center gap-2 font-bold text-[17px] text-[#18181B]">
                 📄 ResumeAI
               </div>
               <p className="max-w-xs leading-relaxed">
                 AI-powered resume builder helping you get hired faster.
               </p>
+              <div className="flex items-center gap-4 pt-2">
+                <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[#18181B] cursor-pointer hover:bg-zinc-200">X</span>
+                <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[#18181B] cursor-pointer hover:bg-zinc-200">in</span>
+                <span className="w-8 h-8 rounded-full bg-zinc-100 flex items-center justify-center text-[#18181B] cursor-pointer hover:bg-zinc-200">🏀</span>
+              </div>
             </div>
 
             <div>
-              <h5 className="font-bold text-[#18181B] mb-3">Product</h5>
-              <ul className="space-y-2">
+              <h5 className="font-bold text-[15px] text-[#18181B] mb-4">Product</h5>
+              <ul className="space-y-3">
                 <li><a href="#features" className="hover:text-[#18181B]">Features</a></li>
-                <li><a href="#preview" className="hover:text-[#18181B]">Templates</a></li>
+                <li><a href="#templates" className="hover:text-[#18181B]">Templates</a></li>
                 <li><a href="#pricing" className="hover:text-[#18181B]">Pricing</a></li>
+                <li><a href="#" className="hover:text-[#18181B]">AI Tools</a></li>
               </ul>
             </div>
 
             <div>
-              <h5 className="font-bold text-[#18181B] mb-3">Resources</h5>
-              <ul className="space-y-2">
-                <li><a href="#faq" className="hover:text-[#18181B]">FAQ</a></li>
-                <li><a href="#testimonials" className="hover:text-[#18181B]">Testimonials</a></li>
+              <h5 className="font-bold text-[15px] text-[#18181B] mb-4">Resources</h5>
+              <ul className="space-y-3">
+                <li><a href="#" className="hover:text-[#18181B]">Resume Examples</a></li>
+                <li><a href="#" className="hover:text-[#18181B]">Blog</a></li>
+                <li><a href="#" className="hover:text-[#18181B]">Help Center</a></li>
+                <li><a href="#" className="hover:text-[#18181B]">Career Tips</a></li>
               </ul>
             </div>
 
             <div>
-              <h5 className="font-bold text-[#18181B] mb-3">Company</h5>
-              <ul className="space-y-2">
+              <h5 className="font-bold text-[15px] text-[#18181B] mb-4">Company</h5>
+              <ul className="space-y-3">
                 <li><a href="#" className="hover:text-[#18181B]">About Us</a></li>
+                <li><a href="#" className="hover:text-[#18181B]">Contact</a></li>
                 <li><a href="#" className="hover:text-[#18181B]">Privacy Policy</a></li>
                 <li><a href="#" className="hover:text-[#18181B]">Terms of Service</a></li>
               </ul>
+            </div>
+
+            <div className="col-span-2 lg:col-span-1">
+              <h5 className="font-bold text-[15px] text-[#18181B] mb-4">Newsletter</h5>
+              <p className="mb-4 text-[#71717A]">Get the latest tips and updates</p>
+              <div className="flex gap-2">
+                <input 
+                  type="email" 
+                  placeholder="Enter your email" 
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E4E4E7] bg-[#FAFAF9] text-[13px] focus:outline-none focus:border-[#111827]"
+                />
+                <button className="px-4 py-2.5 rounded-xl bg-[#111827] text-white hover:bg-[#27272A]">
+                  →
+                </button>
+              </div>
             </div>
           </div>
 

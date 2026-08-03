@@ -471,19 +471,8 @@ function TemplateCard({ template, isFavorited, onToggleFavorite, onUse, isVisibl
   );
 }
 
-// ─── Sidebar Nav Items ────────────────────────────────────────────────────────
-
-const NAV_ITEMS = [
-  { label: 'Dashboard', icon: '⊟', href: '/' },
-  { label: 'My Resumes', icon: '📄', href: '/' },
-  { label: 'Templates', icon: '🎨', href: '/templates', active: true },
-  { label: 'AI Tools', icon: '✨', href: '#', hasChildren: true },
-  { label: 'Cover Letters', icon: '✉️', href: '#' },
-  { label: 'Job Match', icon: '🎯', href: '#' },
-  { label: 'Interview Prep', icon: '🎤', href: '#' },
-  { label: 'Job Tracker', icon: '📊', href: '#' },
-  { label: 'ATS Checker', icon: '✓', href: '#' },
-];
+import { Sidebar } from '@/components/resumes/Sidebar';
+import { TopHeader } from '@/components/layout/TopHeader';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -549,102 +538,11 @@ export default function TemplatesPage() {
   return (
     <div className="min-h-screen bg-[#FAFAF9] flex font-sans antialiased text-[#18181B]">
       {/* ─── Sidebar ─── */}
-      <aside className="w-56 shrink-0 hidden md:flex flex-col fixed left-0 top-0 h-full bg-white border-r border-[#E4E4E7] z-20">
-        {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 h-14 border-b border-[#E4E4E7] shrink-0">
-          <div className="w-7 h-7 rounded-xl bg-[#111827] flex items-center justify-center">
-            <span className="text-white text-xs font-black">R</span>
-          </div>
-          <span className="text-sm font-bold text-[#18181B]">ResumeAI</span>
-        </div>
-
-        {/* Nav */}
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-          {NAV_ITEMS.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                item.active
-                  ? 'bg-zinc-100 text-[#18181B]'
-                  : 'text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]'
-              }`}
-            >
-              <span className="text-sm w-4 text-center">{item.icon}</span>
-              <span>{item.label}</span>
-              {item.hasChildren && (
-                <svg className="w-3 h-3 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              )}
-            </Link>
-          ))}
-
-          <div className="pt-2 mt-2 border-t border-[#E4E4E7]">
-            <Link href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B] transition-all">
-              <span className="text-sm w-4 text-center">⚙️</span>
-              <span>Settings</span>
-            </Link>
-          </div>
-        </nav>
-
-        {/* Upgrade to Pro Card */}
-        <div className="p-4 border-t border-[#E4E4E7]">
-          <div className="p-3 rounded-2xl bg-[#FAFAF9] border border-[#E4E4E7]">
-            <div className="flex items-center gap-2 mb-1.5">
-              <div className="w-6 h-6 rounded-lg bg-[#111827] flex items-center justify-center">
-                <span className="text-white text-[10px]">★</span>
-              </div>
-              <p className="text-xs font-bold text-[#18181B]">Upgrade to Pro</p>
-            </div>
-            <p className="text-[11px] text-[#71717A] mb-2.5 leading-relaxed">Unlock all features and create unlimited resumes.</p>
-            <button className="w-full py-2 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold cursor-pointer transition-colors">
-              Upgrade Now
-            </button>
-          </div>
-        </div>
-
-        {/* User profile */}
-        <div className="flex items-center gap-3 px-4 py-3 border-t border-[#E4E4E7]">
-          <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-[#71717A] shrink-0">JD</div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-[#18181B] truncate">John Doe</p>
-            <p className="text-[10px] text-[#71717A] truncate">john.doe@example.com</p>
-          </div>
-          <svg className="w-3.5 h-3.5 text-[#71717A] shrink-0 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </aside>
+      <Sidebar />
 
       {/* ─── Main Content ─── */}
-      <main className="flex-1 md:ml-56 min-h-screen">
-        {/* Topbar */}
-        <header className="sticky top-0 z-10 h-14 bg-white border-b border-[#E4E4E7] flex items-center justify-between px-6 md:px-8">
-          <div className="flex-1 max-w-sm">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search anything..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] text-sm text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#111827] transition-colors"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3 ml-4">
-            <button className="relative p-2 rounded-xl text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 cursor-pointer">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#B91C1C] rounded-full" />
-            </button>
-            <div className="w-8 h-8 rounded-full bg-[#111827] flex items-center justify-center text-white text-xs font-bold">JD</div>
-          </div>
-        </header>
+      <main className="flex-1 md:ml-[220px] min-h-screen">
+        <TopHeader />
 
         {/* Page body */}
         <div className="px-6 md:px-8 py-8">

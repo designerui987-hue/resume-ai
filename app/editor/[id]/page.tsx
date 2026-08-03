@@ -56,6 +56,59 @@ export default function ResumeEditorPage() {
   const [resumeTitle, setResumeTitle] = useState('Untitled Resume');
   const [isExporting, setIsExporting] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(90);
+  const [previewWidth, setPreviewWidth] = useState(500);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (isResizing) {
+        const newWidth = window.innerWidth - e.clientX;
+        if (newWidth >= 320 && newWidth <= 900) {
+          setPreviewWidth(newWidth);
+        }
+      }
+    },
+    [isResizing]
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener('mousemove', resize);
+      window.addEventListener('mouseup', stopResizing);
+    } else {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    }
+    return () => {
+      window.removeEventListener('mousemove', resize);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [isResizing, resize, stopResizing]);
+
+  const handleZoomIn = () => setZoomLevel((prev) => Math.min(150, prev + 10));
+  const handleZoomOut = () => setZoomLevel((prev) => Math.max(50, prev - 10));
+  const handleZoomReset = () => setZoomLevel(100);
+
+  const handleWheelZoom = (e: React.WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        handleZoomIn();
+      } else {
+        handleZoomOut();
+      }
+    }
+  };
 
   const {
     register,
@@ -351,7 +404,7 @@ export default function ResumeEditorPage() {
       <header className="sticky top-0 z-30 h-14 bg-white border-b border-[#E4E4E7] flex items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Link
-            href="/"
+            href="/resumes"
             className="p-1.5 rounded-lg text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 transition-colors"
           >
             ←
@@ -526,8 +579,21 @@ export default function ResumeEditorPage() {
           </div>
         </div>
 
-        {/* ── Panel 3: Right - Live Preview (full height) ── */}
-        <div className="hidden lg:flex w-[440px] xl:w-[500px] shrink-0 flex-col border-l border-[#E4E4E7] bg-white overflow-hidden">
+        {/* ── Panel 3: Right - Resizable Live Preview (full height) ── */}
+        <div 
+          onMouseDown={startResizing} 
+          className="hidden lg:flex w-2 bg-[#E4E4E7] hover:bg-zinc-400 cursor-col-resize transition-all shrink-0 z-20 items-center justify-center group relative select-none"
+          title="Drag left/right with mouse to adjust preview width"
+        >
+          <div className="w-4 h-10 bg-white border border-[#E4E4E7] group-hover:border-zinc-400 rounded-full shadow-2xs flex items-center justify-center text-[#71717A] text-[10px] font-bold">
+            ⁞
+          </div>
+        </div>
+
+        <div 
+          style={{ width: `${previewWidth}px` }} 
+          className="hidden lg:flex shrink-0 flex-col border-l border-[#E4E4E7] bg-white overflow-hidden"
+        >
           {/* Preview header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#E4E4E7] shrink-0">
             <div className="flex items-center gap-2">
@@ -535,10 +601,28 @@ export default function ResumeEditorPage() {
               <span className="text-xs font-semibold text-[#18181B]">Live Preview</span>
             </div>
             <div className="flex items-center gap-3">
-              <div className="flex items-center gap-1.5 text-xs text-[#71717A]">
-                <button className="hover:text-[#18181B] px-1">−</button>
-                <span className="font-semibold">90%</span>
-                <button className="hover:text-[#18181B] px-1">+</button>
+              <div className="flex items-center gap-1.5 text-xs text-[#71717A] bg-[#FAFAF9] px-2 py-1 rounded-lg border border-[#E4E4E7]">
+                <button 
+                  onClick={handleZoomOut}
+                  className="hover:text-[#18181B] px-1.5 font-bold cursor-pointer transition-colors"
+                  title="Zoom Out (-10%)"
+                >
+                  −
+                </button>
+                <button
+                  onClick={handleZoomReset}
+                  className="font-semibold px-1 text-[#18181B] hover:underline cursor-pointer"
+                  title="Reset Zoom to 100%"
+                >
+                  {zoomLevel}%
+                </button>
+                <button 
+                  onClick={handleZoomIn}
+                  className="hover:text-[#18181B] px-1.5 font-bold cursor-pointer transition-colors"
+                  title="Zoom In (+10%)"
+                >
+                  +
+                </button>
               </div>
               <button
                 onClick={() => setShowAiPanel((p) => !p)}
@@ -550,9 +634,15 @@ export default function ResumeEditorPage() {
             </div>
           </div>
 
-          {/* Full Live Resume Preview */}
-          <div className="flex-1 overflow-y-auto bg-zinc-50 p-4">
-            <div style={{ transform: 'scale(0.88)', transformOrigin: 'top center' }}>
+          {/* Full Live Resume Preview with Mouse Scroll Zoom */}
+          <div 
+            className="flex-1 overflow-auto bg-zinc-100 p-6 flex justify-center items-start select-none cursor-grab active:cursor-grabbing"
+            onWheel={handleWheelZoom}
+          >
+            <div 
+              className="transition-transform duration-150 ease-out origin-top shadow-xl rounded-md bg-white"
+              style={{ transform: `scale(${zoomLevel / 100})` }}
+            >
               <ResumePreview data={formData} template={activeTemplate} />
             </div>
           </div>

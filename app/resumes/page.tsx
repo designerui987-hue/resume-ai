@@ -1,0 +1,488 @@
+'use client';
+
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import { Sidebar } from '@/components/resumes/Sidebar';
+import { Header } from '@/components/resumes/Header';
+import { StatsCard } from '@/components/resumes/StatsCard';
+import { Filters } from '@/components/resumes/Filters';
+import { ResumeCard, ResumeItem } from '@/components/resumes/ResumeCard';
+import { ResumeInsights } from '@/components/resumes/ResumeInsights';
+import { RecentActivity } from '@/components/resumes/RecentActivity';
+import { TipsCard } from '@/components/resumes/TipsCard';
+import { Pagination } from '@/components/resumes/Pagination';
+import { MobileNav } from '@/components/ui/MobileNav';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  FileText,
+  CheckSquare,
+  AlertTriangle,
+} from 'lucide-react';
+
+const ITEMS_PER_PAGE = 8;
+
+// Helper: derive ResumeItem display fields from a raw Supabase row
+function toResumeItem(row: any): ResumeItem {
+  const updated = row.updated_at ? new Date(row.updated_at) : new Date(row.created_at);
+  const now = new Date();
+  const diffMs = now.getTime() - updated.getTime();
+  const diffHrs = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffHrs / 24);
+
+  let updatedAgo = 'Just now';
+  if (diffHrs >= 1 && diffHrs < 24) updatedAgo = `${diffHrs}h ago`;
+  else if (diffDays === 1) updatedAgo = 'Yesterday';
+  else if (diffDays > 1) updatedAgo = `${diffDays} days ago`;
+
+  const modifiedDate = updated.toLocaleDateString('en-US', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+
+  return {
+    id: row.id,
+    title: row.title || 'Untitled Resume',
+    isDefault: row.is_default ?? false,
+    updatedAgo,
+    pages: 1,
+    modifiedDate,
+    atsScore: row.completion_score ?? 0,
+    status: row.status ?? 'Draft',
+    targetRole: row.target_role ?? '',
+    // skills and companies are fetched asynchronously if needed; omit for now
+    skills: [],
+    companies: [],
+  };
+}
+
+export default function ResumesPage() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Data state
+  const [resumes, setResumes] = useState<ResumeItem[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // UI state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('modified');
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Import state
+  const [isImporting, setIsImporting] = useState(false);
+  const [importProgress, setImportProgress] = useState(0);
+  const [importStep, setImportStep] = useState('');
+
+  // Notification state
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  /* ───────── Auth + data fetch ───────── */
+  const fetchResumes = useCallback(async (uid: string) => {
+    if (uid === 'demo-user-id') {
+      // Use static demo cards
+      setResumes([
+        { id: 'demo-1', title: 'Senior Frontend Developer', isDefault: true, updatedAgo: '2 hours ago', pages: 2, modifiedDate: '08 May 2025', atsScore: 92, status: 'Published' },
+        { id: 'demo-2', title: 'Product Manager', isDefault: false, updatedAgo: '2 days ago', pages: 1, modifiedDate: '06 May 2025', atsScore: 88, status: 'Draft' },
+        { id: 'demo-3', title: 'Full Stack Developer', isDefault: false, updatedAgo: '5 days ago', pages: 2, modifiedDate: '03 May 2025', atsScore: 74, status: 'Draft' },
+        { id: 'demo-4', title: 'UI/UX Designer', isDefault: false, updatedAgo: '1 week ago', pages: 1, modifiedDate: '30 Apr 2025', atsScore: 90, status: 'Published' },
+        { id: 'demo-5', title: 'Data Analyst', isDefault: false, updatedAgo: '2 weeks ago', pages: 1, modifiedDate: '20 Apr 2025', atsScore: 68, status: 'Draft' },
+      ]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('*')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+      setResumes((data || []).map(toResumeItem));
+    } catch (err: any) {
+      console.error('[Resumes] fetch error:', err?.message ?? err);
+      setErrorMsg('Failed to load resumes. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      const isDemo =
+        typeof window !== 'undefined' &&
+        localStorage.getItem('demo_user_logged_in') === 'true';
+
+      if (isDemo) {
+        setUserId('demo-user-id');
+        fetchResumes('demo-user-id');
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        router.push('/login');
+        return;
+      }
+      setUserId(session.user.id);
+      fetchResumes(session.user.id);
+    };
+    init();
+  }, [router, fetchResumes]);
+
+  /* ───────── Actions ───────── */
+  const handleCreateNew = () => {
+    router.push('/editor/new-' + Date.now());
+  };
+
+  const handleImport = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext !== 'pdf' && ext !== 'docx') {
+      setErrorMsg('Only PDF and DOCX files are supported.');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportProgress(10);
+    setImportStep('Reading file…');
+    setErrorMsg(null);
+
+    try {
+      // Step 1 – read / extract text
+      await new Promise(r => setTimeout(r, 400));
+      setImportProgress(30);
+      setImportStep('Extracting text content…');
+
+      let extractedText = '';
+      if (ext === 'docx') {
+        try { extractedText = await file.text(); } catch { /* binary fallback */ }
+      }
+      // For PDF, text extraction needs a worker; we store a placeholder and let the editor handle it
+      extractedText = extractedText || `Imported from: ${file.name}`;
+
+      setImportProgress(60);
+      setImportStep('Creating draft resume…');
+      await new Promise(r => setTimeout(r, 300));
+
+      const resumeName = file.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[-_]/g, ' ');
+
+      let newId = 'import-' + Date.now();
+
+      if (userId !== 'demo-user-id') {
+        const { data, error } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: userId,
+            title: resumeName,
+            summary: extractedText.substring(0, 500) || null,
+            status: 'Draft',
+            completion_score: 50,
+          })
+          .select('id')
+          .single();
+
+        if (error) throw error;
+        if (data?.id) newId = data.id;
+      } else {
+        // Demo mode – add optimistically
+        const newItem: ResumeItem = {
+          id: newId,
+          title: resumeName,
+          isDefault: false,
+          updatedAgo: 'Just now',
+          pages: 1,
+          modifiedDate: 'Today',
+          atsScore: 50,
+          status: 'Draft',
+        };
+        setResumes(prev => [newItem, ...prev]);
+      }
+
+      setImportProgress(90);
+      setImportStep('Finalising…');
+      await new Promise(r => setTimeout(r, 300));
+      setImportProgress(100);
+
+      setSuccessMsg(`"${resumeName}" imported successfully!`);
+      setTimeout(() => setSuccessMsg(null), 5000);
+
+      if (userId !== 'demo-user-id') await fetchResumes(userId);
+      router.push(`/editor/${newId}`);
+    } catch (err: any) {
+      console.error('[Resumes] import error:', err?.message ?? err);
+      setErrorMsg('Failed to import resume. Please try again.');
+    } finally {
+      setIsImporting(false);
+      setImportProgress(0);
+      setImportStep('');
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    // Optimistic remove (ResumeCard shows its own confirm dialog before calling this)
+    setResumes(prev => prev.filter(r => r.id !== id));
+    if (userId && userId !== 'demo-user-id') {
+      const { error } = await supabase.from('resumes').delete().eq('id', id);
+      if (error) {
+        console.error('[Resumes] delete error:', error.message);
+        setErrorMsg('Failed to delete resume.');
+        if (userId) fetchResumes(userId); // restore
+      }
+    }
+  };
+
+  const handleDuplicate = async (id: string) => {
+    const target = resumes.find(r => r.id === id);
+    if (!target) return;
+
+    const newTitle = `Copy of ${target.title}`;
+    const newItem: ResumeItem = {
+      ...target,
+      id: 'dup-' + Date.now(),
+      title: newTitle,
+      isDefault: false,
+      updatedAgo: 'Just now',
+      modifiedDate: 'Today',
+    };
+    // Optimistic add
+    setResumes(prev => [newItem, ...prev]);
+    setSuccessMsg(`"${newTitle}" created.`);
+    setTimeout(() => setSuccessMsg(null), 3000);
+
+    if (userId && userId !== 'demo-user-id') {
+      try {
+        await supabase.from('resumes').insert({
+          user_id: userId,
+          title: newTitle,
+          target_role: target.targetRole || null,
+          status: 'Draft',
+          completion_score: target.atsScore,
+        });
+        fetchResumes(userId);
+      } catch (err: any) {
+        console.error('[Resumes] duplicate error:', err?.message ?? err);
+      }
+    }
+  };
+
+  const handleRename = async (id: string, newTitle: string) => {
+    // Optimistic update
+    setResumes(prev => prev.map(r => r.id === id ? { ...r, title: newTitle, updatedAgo: 'Just now' } : r));
+    setSuccessMsg(`Renamed to "${newTitle}".`);
+    setTimeout(() => setSuccessMsg(null), 3000);
+
+    if (userId && userId !== 'demo-user-id') {
+      try {
+        const { error } = await supabase
+          .from('resumes')
+          .update({ title: newTitle, updated_at: new Date().toISOString() })
+          .eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error('[Resumes] rename error:', err?.message ?? err);
+        setErrorMsg('Failed to rename resume.');
+        if (userId) fetchResumes(userId);
+      }
+    }
+  };
+
+  /* ───────── Filtering & sorting ───────── */
+  const filtered = resumes
+    .filter(r => {
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        const inTitle = r.title.toLowerCase().includes(q);
+        const inRole = (r.targetRole ?? '').toLowerCase().includes(q);
+        const inSkills = (r.skills ?? []).some(s => s.toLowerCase().includes(q));
+        const inCompanies = (r.companies ?? []).some(c => c.toLowerCase().includes(q));
+        if (!inTitle && !inRole && !inSkills && !inCompanies) return false;
+      }
+      if (statusFilter === 'default') return !!r.isDefault;
+      if (statusFilter === 'ats') return r.atsScore >= 80;
+      if (statusFilter === 'published') return r.status === 'Published';
+      if (statusFilter === 'draft') return r.status === 'Draft';
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'score') return b.atsScore - a.atsScore;
+      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      return 0;
+    });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const paginated = filtered.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
+  /* ───────── Render ───────── */
+  return (
+    <div className="min-h-screen bg-[#FAFAF9] text-[#18181B] font-sans antialiased flex selection:bg-[#111827] selection:text-white pb-20 md:pb-0">
+      <Sidebar />
+
+      <div className="flex-1 md:ml-[220px] min-h-screen flex flex-col justify-between">
+        {/* Hidden file input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,.docx"
+          onChange={handleFileUpload}
+          className="hidden"
+        />
+
+        <div className="space-y-6 pb-8">
+          {/* Top Navbar */}
+          <Header onCreateNew={handleCreateNew} onImport={handleImport} />
+
+          {/* Notification toasts */}
+          {(errorMsg || successMsg) && (
+            <div className="px-6 space-y-2">
+              {errorMsg && (
+                <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{errorMsg}</span>
+                  </div>
+                  <button onClick={() => setErrorMsg(null)} className="font-bold hover:underline ml-3 cursor-pointer">✕</button>
+                </div>
+              )}
+              {successMsg && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="w-3.5 h-3.5 shrink-0" />
+                    <span>{successMsg}</span>
+                  </div>
+                  <button onClick={() => setSuccessMsg(null)} className="font-bold hover:underline ml-3 cursor-pointer">✕</button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Statistics Cards */}
+          <StatsCard />
+
+          {/* Filters Bar */}
+          <Filters
+            searchQuery={searchQuery}
+            onSearchChange={q => { setSearchQuery(q); setCurrentPage(1); }}
+            statusFilter={statusFilter}
+            onStatusFilterChange={f => { setStatusFilter(f); setCurrentPage(1); }}
+            sortBy={sortBy}
+            onSortChange={setSortBy}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            allResumes={resumes}
+            onSelectSuggestion={id => {
+              const match = resumes.find(r => r.id === id);
+              if (match) setSearchQuery(match.title);
+            }}
+          />
+
+          {/* Main workspace */}
+          <div className="px-6 flex flex-col lg:flex-row gap-6 items-start">
+            {/* Resume list */}
+            <div className="flex-1 w-full space-y-3.5">
+              {loading ? (
+                <div className="space-y-3.5">
+                  {[1, 2, 3].map(i => (
+                    <div key={i} className="p-4 rounded-2xl bg-white border border-[#E4E4E7] shadow-2xs flex items-center gap-4">
+                      <Skeleton className="w-12 h-14 rounded-xl" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-3 w-1/3" />
+                        <Skeleton className="h-3 w-1/4" />
+                      </div>
+                      <Skeleton className="w-10 h-10 rounded-full shrink-0" />
+                    </div>
+                  ))}
+                </div>
+              ) : paginated.length === 0 ? (
+                <EmptyState
+                  icon="📄"
+                  title={searchQuery ? 'No resumes match your search' : 'No resumes yet'}
+                  description={
+                    searchQuery
+                      ? 'Try a different search term or clear filters.'
+                      : 'Create your first resume or import an existing PDF / DOCX.'
+                  }
+                  actionLabel={searchQuery ? 'Clear Search' : 'Create Resume'}
+                  onAction={searchQuery ? () => setSearchQuery('') : handleCreateNew}
+                />
+              ) : (
+                <div className={viewMode === 'grid' ? 'grid grid-cols-1 sm:grid-cols-2 gap-4' : 'space-y-3.5'}>
+                  {paginated.map(resume => (
+                    <ResumeCard
+                      key={resume.id}
+                      resume={resume}
+                      viewMode={viewMode}
+                      onDelete={handleDelete}
+                      onDuplicate={handleDuplicate}
+                      onRename={handleRename}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+
+            {/* Right panel */}
+            <div className="w-full lg:w-[320px] shrink-0 space-y-5">
+              <ResumeInsights />
+              <RecentActivity />
+              <TipsCard />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Import progress overlay */}
+      {isImporting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-8 w-80 shadow-2xl border border-[#E4E4E7] space-y-5 text-center">
+            <div className="w-12 h-12 rounded-2xl bg-zinc-100 border border-[#E4E4E7] flex items-center justify-center mx-auto">
+              <FileText className="w-5 h-5 text-[#18181B] animate-pulse" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#18181B] mb-1">Importing Resume</p>
+              <p className="text-xs text-[#71717A]">{importStep}</p>
+            </div>
+            <div className="w-full bg-zinc-100 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-[#111827] h-2 rounded-full transition-all duration-500"
+                style={{ width: `${importProgress}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-[#71717A]">{importProgress}%</p>
+          </div>
+        </div>
+      )}
+
+      <MobileNav />
+    </div>
+  );
+}

@@ -262,90 +262,8 @@ function DonutChart({ value, size = 110 }: { value: number; size?: number }) {
 
 // ─── Sidebar Nav ──────────────────────────────────────────────────────────────
 
-const NAV_MAIN = [
-  { label: 'Dashboard', icon: '⊟', href: '/' },
-  { label: 'My Resumes', icon: '📄', href: '/' },
-  { label: 'Templates', icon: '🎨', href: '/templates' },
-];
-const NAV_AI = [
-  { label: 'AI Writer', icon: '✏️', href: '#' },
-  { label: 'AI Summary', icon: '✨', href: '#' },
-  { label: 'Cover Letter Generator', icon: '✉️', href: '#' },
-  { label: 'Job Match', icon: '🎯', href: '#' },
-  { label: 'ATS Checker', icon: '✓', href: '/ats-checker', active: true },
-  { label: 'Interview Prep', icon: '🎤', href: '#' },
-  { label: 'Job Tracker', icon: '📊', href: '#' },
-];
-const NAV_ACCOUNT = [
-  { label: 'Settings', icon: '⚙️', href: '#' },
-  { label: 'Profile', icon: '👤', href: '#' },
-  { label: 'Billing', icon: '💳', href: '#' },
-];
-
-function Sidebar() {
-  return (
-    <aside className="w-56 shrink-0 hidden md:flex flex-col fixed left-0 top-0 h-full bg-white border-r border-[#E4E4E7] z-20">
-      <div className="flex items-center gap-2.5 px-5 h-14 border-b border-[#E4E4E7] shrink-0">
-        <div className="w-7 h-7 rounded-xl bg-[#111827] flex items-center justify-center">
-          <span className="text-white text-xs font-black">R</span>
-        </div>
-        <span className="text-sm font-bold text-[#18181B]">ResumeAI</span>
-      </div>
-
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
-        {NAV_MAIN.map((item) => (
-          <Link key={item.label} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B] transition-all">
-            <span className="text-sm w-4 text-center">{item.icon}</span>
-            <span>{item.label}</span>
-          </Link>
-        ))}
-
-        <div className="pt-3 pb-1">
-          <p className="text-[10px] font-bold text-[#71717A] uppercase tracking-widest px-3 mb-1">AI TOOLS</p>
-          {NAV_AI.map((item) => (
-            <Link key={item.label} href={item.href} className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${item.active ? 'bg-zinc-100 text-[#18181B]' : 'text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B]'}`}>
-              <span className="text-sm w-4 text-center">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </div>
-
-        <div className="pt-3 pb-1">
-          <p className="text-[10px] font-bold text-[#71717A] uppercase tracking-widest px-3 mb-1">ACCOUNT</p>
-          {NAV_ACCOUNT.map((item) => (
-            <Link key={item.label} href={item.href} className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-[#71717A] hover:bg-zinc-50 hover:text-[#18181B] transition-all">
-              <span className="text-sm w-4 text-center">{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          ))}
-        </div>
-      </nav>
-
-      <div className="p-3 border-t border-[#E4E4E7]">
-        <div className="p-3 rounded-2xl bg-[#FAFAF9] border border-[#E4E4E7]">
-          <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-6 h-6 rounded-lg bg-[#111827] flex items-center justify-center">
-              <span className="text-white text-[10px]">★</span>
-            </div>
-            <p className="text-xs font-bold text-[#18181B]">Upgrade to Pro</p>
-          </div>
-          <p className="text-[11px] text-[#71717A] mb-2 leading-relaxed">Unlock unlimited AI credits, advanced tools and more.</p>
-          <button className="w-full py-1.5 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold cursor-pointer transition-colors">
-            Upgrade Now
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-3 px-4 py-3 border-t border-[#E4E4E7]">
-        <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-[#71717A]">JD</div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-[#18181B] truncate">John Doe</p>
-          <p className="text-[10px] text-[#71717A] truncate">john.doe@example.com</p>
-        </div>
-      </div>
-    </aside>
-  );
-}
+import { Sidebar } from '@/components/resumes/Sidebar';
+import { TopHeader } from '@/components/layout/TopHeader';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -355,66 +273,79 @@ export default function ATSCheckerPage() {
   const [showAllKeywords, setShowAllKeywords] = useState(false);
   const [showAllMissing, setShowAllMissing] = useState(false);
   const [jobDesc, setJobDesc] = useState('');
-  const [showJobModal, setShowJobModal] = useState(false);
+  const [scannedFileName, setScannedFileName] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const scoreColor = OVERALL_SCORE >= 80 ? '#15803D' : OVERALL_SCORE >= 60 ? '#B45309' : '#B91C1C';
   const scoreLabel = OVERALL_SCORE >= 80 ? 'Excellent' : OVERALL_SCORE >= 60 ? 'Good' : 'Needs Work';
 
   const handleScan = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    } else {
+      triggerScan();
+    }
+  };
+
+  const triggerScan = (fileName?: string) => {
     setScanning(true);
     setScanned(false);
+    if (fileName) setScannedFileName(fileName);
     setTimeout(() => {
       setScanning(false);
       setScanned(true);
     }, 2000);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      triggerScan(file.name);
+    }
+  };
+
+  const handleDownloadReport = () => {
+    window.print();
+  };
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#FAFAF9] flex font-sans antialiased text-[#18181B]">
       <Sidebar />
 
-      <main className="flex-1 md:ml-56 min-h-screen">
-        {/* Topbar */}
-        <header className="sticky top-0 z-10 h-14 bg-white border-b border-[#E4E4E7] flex items-center justify-between px-6 md:px-8">
-          <div className="flex-1 max-w-sm">
-            <div className="relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#71717A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input type="text" placeholder="Search anything..." className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#FAFAF9] border border-[#E4E4E7] text-sm text-[#18181B] placeholder:text-[#A1A1AA] focus:outline-none focus:border-[#111827] transition-colors" />
-            </div>
-          </div>
-          <div className="flex items-center gap-3 ml-4">
-            <button className="p-2 rounded-xl text-[#71717A] hover:text-[#18181B] hover:bg-zinc-100 cursor-pointer relative">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-[#B91C1C] rounded-full" />
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-[#111827] flex items-center justify-center text-white text-xs font-bold">JD</div>
-              <div className="hidden sm:block">
-                <p className="text-xs font-bold text-[#18181B]">John Doe</p>
-                <p className="text-[10px] text-[#71717A]">Premium Plan</p>
-              </div>
-            </div>
-          </div>
-        </header>
+      <main className="flex-1 md:ml-[220px] min-h-screen">
+        <TopHeader />
 
         <div className="px-6 md:px-8 py-6">
           {/* Page Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div>
-              <Link href="/" className="flex items-center gap-1.5 text-xs text-[#71717A] hover:text-[#18181B] mb-2 w-fit">
+              <Link href="/dashboard" className="flex items-center gap-1.5 text-xs text-[#71717A] hover:text-[#18181B] mb-2 w-fit">
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Back to Dashboard
               </Link>
               <h1 className="text-2xl font-black text-[#18181B]">ATS Checker</h1>
-              <p className="text-sm text-[#71717A] mt-0.5">Analysis of your resume against ATS best practices and job description</p>
+              <p className="text-sm text-[#71717A] mt-0.5">
+                Analysis of your resume against ATS best practices and job description
+                {scannedFileName && <span className="font-semibold text-[#18181B]"> ({scannedFileName})</span>}
+              </p>
             </div>
             <div className="flex items-center gap-2">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".pdf,.doc,.docx,.txt"
+                className="hidden"
+              />
               <button
                 onClick={handleScan}
                 disabled={scanning}
@@ -437,7 +368,10 @@ export default function ATSCheckerPage() {
                   </>
                 )}
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold cursor-pointer transition-all">
+              <button
+                onClick={handleDownloadReport}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#111827] hover:bg-[#27272A] text-white text-xs font-bold cursor-pointer transition-all"
+              >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
@@ -471,7 +405,10 @@ export default function ATSCheckerPage() {
                       <p className="text-xs text-[#71717A] leading-relaxed">
                         Your resume has a strong foundation. Address the suggested improvements to increase your chances of getting shortlisted.
                       </p>
-                      <button className="mt-3 text-xs font-bold text-[#18181B] hover:text-[#71717A] underline underline-offset-2 cursor-pointer">
+                      <button 
+                        onClick={() => scrollToSection('ats-analysis-section')}
+                        className="mt-3 text-xs font-bold text-[#18181B] hover:text-[#71717A] underline underline-offset-2 cursor-pointer"
+                      >
                         View Full Report →
                       </button>
                     </div>
@@ -588,7 +525,7 @@ export default function ATSCheckerPage() {
               </div>
 
               {/* Row 3: ATS Analysis */}
-              <div className="bg-white rounded-2xl border border-[#E4E4E7] p-6">
+              <div id="ats-analysis-section" className="bg-white rounded-2xl border border-[#E4E4E7] p-6">
                 <h2 className="text-sm font-bold text-[#18181B] mb-5">ATS Analysis</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3">
                   {ATS_ANALYSIS.flatMap((cat) =>
@@ -652,7 +589,10 @@ export default function ATSCheckerPage() {
                     </div>
                   ))}
                 </div>
-                <button className="mt-3 flex items-center gap-1 text-xs font-bold text-[#18181B] hover:text-[#71717A] cursor-pointer">
+                <button 
+                  onClick={() => scrollToSection('ats-analysis-section')}
+                  className="mt-3 flex items-center gap-1 text-xs font-bold text-[#18181B] hover:text-[#71717A] cursor-pointer"
+                >
                   View Details
                   <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
