@@ -3,10 +3,11 @@ import Link from 'next/link';
 import {
   FileText, Clock, MoreVertical, Edit3, Copy, Trash2,
   Download, ExternalLink, Type, AlertTriangle, X, Check,
-  Sparkles, Calendar,
+  Sparkles, Calendar, Loader2,
 } from 'lucide-react';
 import { calculateDynamicATSScore } from '@/lib/ats';
 import { logActivity } from '@/lib/activityLogger';
+import { generateATSFriendlyPDF } from '@/lib/pdfGenerator';
 
 export interface ResumeItem {
   id: string;
@@ -136,6 +137,7 @@ export function ResumeCard({
   const [showMenu, setShowMenu] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showRenameDialog, setShowRenameDialog] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -261,14 +263,26 @@ export function ResumeCard({
 
           {/* Download PDF */}
           <button
-            onClick={() => {
-              logActivity('downloaded', resume.title);
+            onClick={async () => {
               setShowMenu(false);
+              setIsGeneratingPDF(true);
+              try {
+                await generateATSFriendlyPDF(resume);
+              } catch (err) {
+                console.error('PDF generation error:', err);
+              } finally {
+                setIsGeneratingPDF(false);
+              }
             }}
-            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-zinc-100 text-left transition-colors cursor-pointer"
+            disabled={isGeneratingPDF}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-zinc-100 text-left transition-colors cursor-pointer disabled:opacity-50"
           >
-            <Download className="w-3.5 h-3.5 text-[#71717A]" />
-            <span>Download PDF</span>
+            {isGeneratingPDF ? (
+              <Loader2 className="w-3.5 h-3.5 text-[#71717A] animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5 text-[#71717A]" />
+            )}
+            <span>{isGeneratingPDF ? 'Generating...' : 'Download PDF'}</span>
           </button>
 
           <div className="border-t border-[#E4E4E7] my-1" />
@@ -445,6 +459,14 @@ export function ResumeCard({
           onConfirm={t => { onRename(resume.id, t); setShowRenameDialog(false); }}
           onCancel={() => setShowRenameDialog(false)}
         />
+      )}
+      {isGeneratingPDF && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs">
+          <div className="bg-white rounded-2xl p-6 shadow-2xl border border-[#E4E4E7] flex items-center gap-3 space-x-2">
+            <Loader2 className="w-5 h-5 text-[#111827] animate-spin" />
+            <span className="text-xs font-bold text-[#18181B]">Generating ATS PDF for "{resume.title}"...</span>
+          </div>
+        </div>
       )}
     </>
   );
